@@ -1,7 +1,7 @@
 #include <SDL2/SDL.h>
 
-#define SWIDTH 500
-#define SHEIGHT 500
+#define SWIDTH 750
+#define SHEIGHT 750
 
 extern SDL_Surface* sdlScreen;
 extern unsigned short* zbuf;

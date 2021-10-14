@@ -2,6 +2,8 @@
 #include <iostream>
 #include <math.h> //for sqrt and pow
 #include <string>
+#include <vector>
+#include <fstream>
 
 float v3::length() const {
   return sqrt(x*x + y*y + z*z);
@@ -55,51 +57,86 @@ v3& v3::operator*=(const float scalar) {
   return *this;
 }
 
-pnt pnt::operator+(const pnt& other) const {
-  return pnt(x+other.x, y+other.y);
+std::string v3::toString() const {
+  return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")"; 
 }
 
-pnt pnt::operator-(const pnt& other) const {
-  return pnt(x-other.x, y-other.y);
+v3& v3::normalize(void) {
+  float len = length();
+  x /= len;
+  y /= len;
+  z /= len;
+  return *this;
 }
 
-pnt pnt::operator*(const float& other) const {
-  return pnt(x*other, y*other);
+//END OF v3 methods
+
+v2 v2::operator+(const v2& other) const {
+  return v2(x+other.x, y+other.y);
 }
 
-pnt& pnt::operator+=(const pnt& other) {
+v2 v2::operator-(const v2& other) const {
+  return v2(x-other.x, y-other.y);
+}
+
+v2 v2::operator*(const float& other) const {
+  return v2(x*other, y*other);
+}
+
+v2& v2::operator+=(const v2& other) {
   x += other.x;
   y += other.y;
   return *this;
 }
 
-pnt& pnt::operator-=(const pnt& other) {
+v2& v2::operator-=(const v2& other) {
   x -= other.x;
   y -= other.y;
   return *this;
 }
 
-pnt& pnt::operator*=(const float& other) {
+v2& v2::operator*=(const float& other) {
   x *= other;
   y *= other;
   return *this;
 }
 
-std::string pnt::toString() const {
+float v2::dot(const v2& other) const {
+  return other.x*x + other.y*y;
+}
+
+v2 v2::rayNormal(void) const {
+  return v2(-y,x);
+}
+
+std::string v2::toString() const {
   return "(" + std::to_string(x) + ", " + std::to_string(y) + ")";
 }
 
-std::string v3::toString() const {
-  return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")"; 
+//pointer to 3 long array of v2s, must be in counter-clockwise order
+bool v2::checkIfInside(v2* bound) const {
+  v2 rela = (*this)-bound[0];
+  v2 ab = bound[1] - bound[0];
+  if (rela.dot(ab.rayNormal()) < 0) return false;
+
+  v2 relb = (*this)-bound[1];
+  v2 bc = bound[2] - bound[1];
+  if (relb.dot(bc.rayNormal()) < 0) return false;
+
+  v2 relc = (*this)-bound[2];
+  v2 ca = bound[0] - bound[2];
+  if (relc.dot(ca.rayNormal()) < 0) return false;
+  return true;
 }
 
+/*
 #define max(a,b) ((a>b)? a:b)
 #define min(a,b) ((a<b)? a:b)
 //move right and count crossings
 //do not include duplicate vertex at the end, not necessary
-bool checkIfInside(pnt p, pnt* boundary, unsigned int size) {
+bool checkIfInside(v2 p, v2* boundary, unsigned int size) {
   if (size < 3) return false;
-  pnt a,b;
+  v2 a,b;
   a = boundary[0];
   unsigned int crossings = 0;
   for (unsigned long int idx = 1; idx <= size; idx++) {
@@ -110,9 +147,9 @@ bool checkIfInside(pnt p, pnt* boundary, unsigned int size) {
         if (a.y != b.y) { //do not allow horizontal lines
           //get x value of the line between a and b at the y value of p
           float tx = ((b.x - a.x)/(b.y - a.y))*(p.y - a.y) + a.x;
-//          std::cerr << "(" << p.x << "," << p.y << ") : " << tx <<std::endl;
+          std::cerr << "(" << p.x << "," << p.y << ") : " << tx <<std::endl;
           if (p.x <= tx) {
-//            std::cerr << "passed" << std::endl;
+            std::cerr << "passed" << std::endl;
             ++crossings;
           }
         }
@@ -125,3 +162,99 @@ bool checkIfInside(pnt p, pnt* boundary, unsigned int size) {
     return true;
   } else return false;
 }
+*/
+
+//END v2 methods
+
+object objectFromFile(std::string str) {
+  std::fstream file = std::fstream(str, std::ifstream::in);
+  if (!file.is_open()) return object();
+
+  std::vector<v3>ver = std::vector<v3>();
+  std::vector<int>pla = std::vector<int>();
+  std::string word;
+  int st,end;
+  float perLine[3];
+  do {
+    file >> str;
+    if (str == "v") {
+      for (int i =0; i < 3; i++) {
+        file >> str;
+        str = str.substr(0,str.find('/',0)); //get only first value
+        perLine[i] = std::atof(str.c_str());
+      }  
+      ver.push_back(v3(perLine[0],perLine[1],perLine[2]));
+    } else if (str == "f") {
+      for (int i =0; i < 3; i++) {
+        file >> str;
+        str = str.substr(0,str.find('/',0)); //get only first value
+        pla.push_back(std::atoi(str.c_str())-1);
+      }  
+    }
+  } while (!(file.eof()));
+  file.close();
+  return object(ver,pla);
+}
+
+std::string object::toString() {
+  std::string out = "";
+  for (int v =0; v < nv; v++) {
+    out += vertexes[v].toString() + " ";
+  }
+  out += '\n';
+  for (int p=0; p < np; p++) {
+    out += "[" + std::to_string(planes[p*3]) +","+std::to_string(planes[(p*3)+1])+","+std::to_string(planes[(p*3)+2])+"] "; 
+  }
+  return out;
+}
+
+void object::translate(v3 trans) {
+  for (int i = 0; i < nv; i++) {
+    vertexes[i] += trans;
+  }
+  internalCurTrans += trans;
+}
+
+void object::scale(float scalar) {
+  for (int i = 0; i< nv; i++) {
+    vertexes[i] *= scalar;
+  }
+  internalCurScalar *= scalar;
+}
+
+void object::rotateX(float theta) {
+  v3 hold = currentTranslation;
+  translate(hold * -1);
+  v3 tmp;
+  for (int i = 0; i < nv; i++) {
+    v3& cur = vertexes[i];
+    tmp = v3(cur.x, cur.y * cos(theta) + cur.z * sin(theta), cur.y * -1 * sin(theta) + cur.z * cos(theta));
+    vertexes[i] = tmp;
+  }
+  translate(hold);
+}
+
+void object::rotateY(float theta) {
+  v3 hold = currentTranslation;
+  translate(hold * -1);
+  v3 tmp;
+  for (int i = 0; i < nv; i++) {
+    v3& cur = vertexes[i];
+    tmp = v3(cur.x * cos(theta) + cur.z * sin(theta), cur.y, cur.x * -1 * sin(theta) + cur.z * cos(theta));
+    vertexes[i] = tmp;
+  }
+  translate(hold);
+}
+
+void object::rotateZ(float theta) {
+  v3 hold = currentTranslation;
+  translate(hold * -1);
+  v3 tmp;
+  for (int i = 0; i < nv; i++) {
+    v3& cur = vertexes[i];
+    tmp = v3(cur.x * cos(theta) + cur.y * sin(theta), cur.x * -1 * sin(theta) + cur.y * cos(theta), cur.z);
+    vertexes[i] = tmp;
+  }
+  translate(hold);
+}
+

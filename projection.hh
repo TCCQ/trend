@@ -1,4 +1,5 @@
 #include "util.hh"
+#include <vector>
 
 //be very careful editing any of these values
 //I might wanna add some protections for those
@@ -7,7 +8,7 @@
 class screen {
   private:
     void zbuffclear();
-    bool zbuffCheckV1(int, int,object&,int);    
+    float zbuffCheckV1(int, int,object&,int);    
   public:
     screen(int w, int h) : width(w), height(h){
       zbuff = new float[w*h];
@@ -16,19 +17,29 @@ class screen {
       scrnSlope = v3(1,0,0);
       xUnitOrth = v3(0,0,1);
       yUnitOrth = v3(0,1,0);
+      lightLoc = v3(0,0,0);
     }
 
     ~screen() {
       delete zbuff;
     }
+
+    //funcs to generate the stuff on screen
     v3 insectLoc(const v3);
-    pnt locOnScreen(const v3);
+    v2 locOnScreen(const v3);
     v3 pixTov3(int,int);
     void renderObj(object&);
+    void renderScene();
+    void initFrame();
+    void translate(v3);
+    void scaleFocalLength(float);
 
     const int width, height;
     float* zbuff;
 
+    std::vector<object*> inScene;
+
+    v3 lightLoc;
     //TODO rework to use pjtLoc, normal vector, and fixed FOV scalar.
     v3 pjtLoc; //x,y,z of projection point
     //next two are screen plane

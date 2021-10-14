@@ -15,13 +15,13 @@ v3 screen::insectLoc (const v3 vertex) {
   const v3& so = scrnLoc; //offset for screen
   v3 w = vertex - p;
   
-  //pjtpnt & vertex form line of the form
-  //pjtpnt + t(vertex - pjtpnt)
+  //pjtv2 & vertex form line of the form
+  //pjtv2 + t(vertex - pjtv2)
   //we want to first find t by pluging into the screen plane function, that is
   //0 = a(x-x0) + b(y-y0) + c(z-z0)
   //so we algebra and find 
   //t = (ax0 + b0 + cz0 - apx - bpy - cpz) / (awx + bwy + cwz)
-  //where p_ is the pjtpnt coords and w_ is the (vertex - pjtpnt) coords
+  //where p_ is the pjtv2 coords and w_ is the (vertex - pjtv2) coords
 
   const float t = (sm.x*so.x + sm.y*so.y + sm.z*so.z - sm.x*p.x - sm.y*p.y - sm.z*p.z) / 
                   (sm.x*w.x + sm.y*w.y + sm.z*w.z);
@@ -31,19 +31,19 @@ v3 screen::insectLoc (const v3 vertex) {
 
 //TODO remember to check for behind/between when using the insectLoc output
 //call on point returned by insectLoc
-pnt screen::locOnScreen (const v3 intersect) {
+v2 screen::locOnScreen (const v3 intersect) {
   const v3 w = intersect - scrnLoc; //adjust to be relative to center of screen
-  pnt out;
+  v2 out;
   out.x = w.dot(xUnitOrth); 
   out.y = w.dot(yUnitOrth);
-  out *= 10;
+//  out *= 10; //TODO was this really the problem????
   return out;
 }
 
 v3 screen::pixTov3(int x, int y) {
   x -= SWIDTH/2; 
   y -= SHEIGHT/2; 
-  return xUnitOrth*x + yUnitOrth*y + scrnLoc;
+  return (xUnitOrth*x) + (yUnitOrth*y) + scrnLoc;
 }
 
 
@@ -89,15 +89,17 @@ void sortqval (struct qval* arr, int size) {
   }
 }
 
+const float FMAX = std::numeric_limits<float>().max();
+
 void screen::zbuffclear() {
   for (int h = 0; h < height; h++) {
     for (int w = 0; w < width; w++) {
-      zbuff[w + width*h] = std::numeric_limits<float>().max();
+      zbuff[w + width*h] = FMAX;
     }
   }
 }
 
-bool screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
+float screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
 //  zbuff[x + width*y] = std::numeric_limits<float>().max();
   v3 verScrn = pixTov3(x,y);
   v3 param = verScrn - pjtLoc; //param of line throug pix and pjtLoc
@@ -110,55 +112,44 @@ bool screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
 
   float ndp = norm.dot(param); 
   if (ndp == 0) return false;
-  float depth = (norm.dot(c[0]) - norm.dot(pjtLoc))/(ndp); //coef. for line
-//  std::cerr << ((param * depth) + pjtLoc).toString() << std::endl;
-//  depth = (param * depth).length();
-//  std::cerr << std::numeric_limits<float>().max() << ", " << depth << ", " << zbuff[x + width*y] << std::endl;
+  float depth =  (norm.dot(c[0]) - norm.dot(pjtLoc))/(ndp); //coef. for line
 
-  if( depth < zbuff[x + width*y]) {
+  if(depth >= 0 && depth < zbuff[x + width*y]) {
     zbuff[x + width*y] = depth;
-    return true;
-  } else return false;
+    return depth;
+  }
+  return -1;
 }
 
 void screen::renderObj(object& obj) {
-  zbuffclear();
-  struct qval* tmpPlanes = new qval[obj.np];
   float average;
-  for (unsigned int i = 0; i < obj.np; i++) {
-    tmpPlanes[i].index = i;
 
-    v3 midside = (obj.vertexes[obj.planes[(i*3) + 1]] + obj.vertexes[obj.planes[(i*3) + 2]] ) * 0.5F;
-    //point in the middle of the line from second to third vertex
-    midside = (midside - obj.vertexes[obj.planes[i*3]]) * (2.0f/3.0f);
-    //now is the vec from first vertex to midpoint, scaled by 2/3
-    tmpPlanes[i].value = (midside + obj.vertexes[obj.planes[i*3]]).distance(pjtLoc);
-  }
-
-  //tmpPlanes is now filled with data
-//  sortqval(tmpPlanes, obj.np);
-  //tmpPlanes is sorted low-high
-
-
-  pnt* points = new pnt[obj.nv];
+  v2* points = new v2[obj.nv];
   //assume all the points are fine, see locOnScreen warning
   for (unsigned int i = 0; i < obj.nv; i++) {
-    points[i] = locOnScreen(insectLoc(obj.vertexes[i] + obj.translation));
+    points[i] = locOnScreen(insectLoc(obj.vertexes[i]));
   }
-
   //TODO should I render the points too? consider 
 
-  pnt curBound[3];
+  v2 curBound[3];
   float minx,miny,maxx,maxy;
   int tx,ty;
-  for (int i = obj.np-1; i >= 0; i--) {
-    int colorPlaneNumber = tmpPlanes[i].index;
-//    v3 normal = obj.vertexes[obj.planes[colorPlaneNumber+1]] - obj.vertexes[obj.planes[colorPlaneNumber]];
-//    normal = normal.cross(obj.vertexes[obj.planes[colorPlaneNumber+2]] - obj.vertexes[obj.planes[colorPlaneNumber]]);
+  for (int i = 0; i< obj.np; i++) {
+
+//    std::cout << i << " ";
+    v3& a = obj.vertexes[obj.planes[i*3]];
+    v3& b = obj.vertexes[obj.planes[i*3 + 1]];
+    v3& c = obj.vertexes[obj.planes[i*3 + 2]];
+    v3 norm = (b-a).cross(c-a);
+//    if (norm.dot(scrnLoc - pjtLoc) > 0) continue;
+    if (norm.dot(a - pjtLoc) > 0) continue;
+    //back face culling
+
     for (int j = 0; j < 3; j++) {
-      curBound[j] = points[obj.planes[tmpPlanes[i].index * 3 + j]];
+      curBound[j] = points[obj.planes[(i*3)+j]];
       //note that the indexes of obj.vertexes and points align
     }
+
     minx = (curBound[0].x < curBound[1].x)? curBound[0].x:curBound[1].x;
     minx = (minx < curBound[2].x)? minx:curBound[2].x;
 
@@ -173,19 +164,56 @@ void screen::renderObj(object& obj) {
 
     for (int x = minx; x < maxx; x++) {
       for (int y = miny; y < maxy; y++) {
-        if (checkIfInside(pnt(x,y),curBound,3)) {
-          tx = (int)SWIDTH/2 + x;
-          ty = (int)SHEIGHT/2 + y;
-          if (zbuffCheckV1(tx,ty,obj, colorPlaneNumber)) {
-//            setPixel(sdlScreen, tx,ty, 0, colorPlaneNumber << 5, 0xFF - colorPlaneNumber << 5, 0xFF);
-              setPixelFB(tx,ty,0,colorPlaneNumber << 5, 0xFF - colorPlaneNumber << 5, 0xFF);
+        //if (checkIfInside(v2(x,y),curBound,3)) {
+        tx = (int)SWIDTH/2 + x;
+        ty = (int)SHEIGHT/2 + y;
+        if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
+        if (v2(x,y).checkIfInside(curBound)) {
+//          std::cout << i<<",";
+          float depth = zbuffCheckV1(tx,ty,obj, i);
+          if (depth >= 0) {
+//            setPixel(sdlScreen, tx,ty, 0, i << 5, 0xFF - i << 5, 0xFF);
+            v3 toPoly = ((((pixTov3(tx,ty)-pjtLoc) * depth) + pjtLoc) - lightLoc).normalize();
+            norm.normalize();
+            float LL = toPoly.dot(norm)*256;
+            if (LL >= 0)  {
+              setPixel(sdlScreen, tx,ty, 0, 0, 0, 0xFF);
+              continue;
+            }
+//            LL = 256*pow(LL/256,2);
+            LL = log2(abs(LL));
+            LL = (LL < 0)? 0 : LL;
+            LL *= 32;
+            uint8_t rgbLight = (uint8_t)(LL);
+            setPixel(sdlScreen, tx,ty, rgbLight, rgbLight, rgbLight, 0xFF);
           }
+//          std::cout << std::endl;
         }
       }
     }
   }
 //  setPixel(sdlScreen,250,250,0xFF,0,0,0xFF);
-  setPixelFB(250,250,0xFF,0,0,0xFF);
-  delete tmpPlanes;
   delete points;
+}
+
+void screen::initFrame() {
+  zbuffclear();
+  SDL_FillRect(sdlScreen, NULL, 0xFFFF);
+}
+
+void screen::renderScene() {
+  for (int i =0; i < inScene.size(); i++) {
+    renderObj(*(inScene[i]));
+  }
+}
+
+void screen::translate(v3 t) {
+  pjtLoc += t;
+  scrnLoc += t;
+}
+
+void screen::scaleFocalLength(float s) {
+  v3 diff = scrnLoc - pjtLoc;
+  diff *= s;
+  scrnLoc = pjtLoc + diff;
 }

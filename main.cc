@@ -4,121 +4,111 @@
 #include "sdlfb.hh"
 #include <time.h>
 #include <math.h>
+#include <unistd.h>
+#include <signal.h>
+#include <fstream>
 
-//const struct timespec mil = {0,16666666};
 const struct timespec mil = {0,16666666};
-const float RTOT = sqrt(2)/2;
-const float ffu = 0.577350269;
+bool quit = false;
+screen s = screen(SWIDTH, SHEIGHT);
+SDL_Window* win;
+
+void doInput(SDL_KeyboardEvent& e) {
+  if (e.keysym.sym == SDLK_w) {
+    s.inScene[0]->translate(v3(1,0,0));
+  } else if (e.keysym.sym == SDLK_s) {
+    s.inScene[0]->translate(v3(-1,0,0));
+  } else if (e.keysym.sym == SDLK_q) {
+    s.inScene[0]->translate(v3(0,1,0));
+  } else if (e.keysym.sym == SDLK_e) {
+    s.inScene[0]->translate(v3(0,-1,0));
+  } else if (e.keysym.sym == SDLK_a) {
+    s.inScene[0]->translate(v3(0,0,-1));
+  } else if (e.keysym.sym == SDLK_d) {
+    s.inScene[0]->translate(v3(0,0,1));
+  } else if (e.keysym.sym == SDLK_r) {
+    s.scaleFocalLength(2);
+  } else if (e.keysym.sym == SDLK_f) {
+    s.scaleFocalLength(0.5);
+  }
+}
+
+void frame(int sig) {
+  SDL_Event event;
+  if (sig != SIGALRM) return;
+  while (SDL_PollEvent(&event)) {
+    switch (event.type) {
+      case SDL_QUIT:
+        quit=true;
+        ualarm(0,0);
+        break;
+      case SDL_KEYDOWN:
+          doInput(event.key);
+        break;
+      default:
+        break;
+    }
+  }
+
+  //update screen 
+  SDL_LockSurface(sdlScreen);
+  s.initFrame(); //clear screen and zbuff
+  s.renderScene();
+  SDL_UnlockSurface(sdlScreen);
+  SDL_UpdateWindowSurface(win);
+  (s.inScene[0])->rotateY(0.05);
+  (s.inScene[1])->rotateY(-0.05);
+  (s.inScene[2])->rotateX(0.05);
+  (s.inScene[3])->rotateX(-0.05);
+  (s.inScene[4])->rotateZ(0.05);
+//  (s.inScene[1])->rotateY(-0.05);
+}
 
 //extern SDL_Surface* sdlScreen;
 int main() {
-  if (initFB(SWIDTH,SHEIGHT)) {
-    std::cout << "worked?" << std::endl;
-    fb[0] = 0xFF;
-    closeFB();
-  } else {
-    std::cout << "failed" << std::endl;
-  }
-//  return 0;
 
-//  for (int x = 0; x < 1920; x++) {
-//    for (int y = 0; y < 1080; y++) {
-//      setPixelFB(x,y,0xFF,0,0,0xFF);
-//    }
-//  }
-//  return 0;
+  s.pjtLoc = v3(-30,0,0);
+  s.scrnLoc = v3(530,0,0);
+  s.lightLoc = v3(-30,0,-10);
 
-//  pnt* t = new pnt[3];
-//  t[0] = {-1,-1};
-//  t[1] = {1,1};
-//  t[2] = {-1,1};
-//  checkIfInside({0,0}, t, 3);
-//  return 0;
+  object tetra = objectFromFile("tetra.obj");
+  tetra.scale(10);
+  tetra.translate(v3(10,-15,15));
+  s.inScene.push_back(&tetra);
 
-  screen s = screen(SWIDTH, SHEIGHT);
-//  s.pjtLoc = v3(0,-10,0);
-//  s.scrnLoc = v3(ffu, -10+ffu, ffu);
-//  s.scrnSlope = v3(1,1,1);
-//  s.yUnitOrth = v3(ffu, -1*ffu, ffu);
-//  s.xUnitOrth = v3(ffu, ffu, -1*ffu);
-  s.pjtLoc = v3(-10,0,0);
-  s.scrnLoc = v3(-5,0,0);
+  object cube = objectFromFile("cube.obj");
+  cube.scale(6);
+  cube.translate(v3(10,15,15));
+  s.inScene.push_back(&cube);
 
+  object octo = objectFromFile("octo.obj");
+  octo.scale(6);
+  octo.translate(v3(10,15,-15));
+  s.inScene.push_back(&octo);
 
-  object test = object(
-      { v3(10,10,10),v3(10,10,-10),v3(-10,10,-10),v3(-10,10,10),
-        v3(10,-10,10),v3(10,-10,-10),v3(-10,-10,-10),v3(-10,-10,10) },
-      { {0,1,2}, {0,2,3},
-        {4,5,7}, {7,5,6},
-        {2,6,7}, {7,2,3},
-        {0,1,4}, {1,4,5},
-        {4,7,3}, {4,3,0},
-        {1,2,5}, {2,5,6}}
-      );
-  test.translation = v3(10,0,0);
+  object dodec = objectFromFile("dodec.obj");
+  dodec.scale(6);
+  dodec.translate(v3(10,-15,-15));
+  s.inScene.push_back(&dodec);
 
+  object icos = objectFromFile("icos.obj");
+  icos.scale(6);
+  icos.translate(v3(10,0,0));
+  s.inScene.push_back(&icos);
 
-//  SDL_Init(SDL_INIT_VIDEO);
-//  SDL_Window* win = SDL_CreateWindow("trend", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SWIDTH, SHEIGHT, 0);
-  //500x500 window
-//  sdlScreen = SDL_GetWindowSurface(win);
+  SDL_Init(SDL_INIT_VIDEO);
+  win = SDL_CreateWindow("trend", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SWIDTH, SHEIGHT, 0);
+  sdlScreen = SDL_GetWindowSurface(win);
 
-//  SDL_FillRect(sdlScreen, NULL, 0xFFFF);
+  SDL_FillRect(sdlScreen, NULL, 0xFFFF);
 
-
-//  SDL_LockSurface(sdlScreen);
-//  s.recalcObjPlaneOrder(test);
-//  s.renderObj(test);
-//  SDL_UnlockSurface(sdlScreen);
-//  SDL_UpdateWindowSurface(win);
-
-
-
-  int counter = 0;
-  signed char xinc = 1;
-  signed char yinc = 0;
-//  SDL_Event event;
-  bool quit = false;
+  signal(SIGALRM, &frame);
+  ualarm(1,33333); //30 fps
 
   while (!quit) {
     //do input handling
-//    while (SDL_PollEvent(&event)) {
-//      switch (event.type) {
-//        case SDL_QUIT:
-//          quit=true;
-//          break;
-//        default:
-//          break;
-//      }
-//    }
-
-    //update coors
-    s.pjtLoc += v3(0, yinc*0.1, xinc*0.1);
-    s.scrnLoc += v3(0, yinc*0.1,xinc*0.1);
-    ++counter;
-    if (counter ==0) {xinc = 1; yinc = 0;}
-    else if (counter == 200) {xinc = 0; yinc = 1;}
-    else if (counter == 400) {xinc = -1; yinc = 0;}
-    else if (counter == 600) {xinc = 0; yinc = -1;}
-    else if (counter == 800) {xinc = 1; yinc=0; counter = 0;}
-
-    //clear screen
-//    SDL_FillRect(sdlScreen, NULL, 0xFFFF);
-    for (int y = 0; y < SHEIGHT; y++) {
-      for (int x = 0; x < SWIDTH; x++) {
-        setPixelFB(x,y,0xFF,0x33,0,0);
-      }
-    }
-
-    //update screen 
-//    SDL_LockSurface(sdlScreen);
-    s.renderObj(test);
-//    SDL_UnlockSurface(sdlScreen);
-//    SDL_UpdateWindowSurface(win);
-//    SDL_Delay(5000);
-
     nanosleep(&mil,NULL);
   }
-//  SDL_DestroyWindow(win);
-//  SDL_Quit();
+  SDL_DestroyWindow(win);
+  SDL_Quit();
 }

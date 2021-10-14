@@ -1,6 +1,8 @@
-CD:=-g -pg -coverage
-LD:=-g -pg -coverage
+CD:=-g -Og
+LD:=-g -Og
 W:=-Wall -Wextra 
+FST:=-O3
+LTNG:=-Ofast
 
 CARG:=-std=gnu++17
 LARG:=-std=gnu++17 -lSDL2
@@ -14,6 +16,15 @@ ifdef WARN
 	CARG:=${CARG} $W
 endif
 
+ifdef FAST
+	CARG:=${CARG} ${FST}
+	LARG:=${LARG} ${FST}
+endif
+
+ifdef LIGHTNING
+	CARG:=${CARG} ${LTNG}
+	LARG:=${LARG} ${LTNG}
+endif
 
 run:all
 	./all
