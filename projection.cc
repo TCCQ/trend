@@ -5,6 +5,9 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <limits>
+#include "timage.hh"
+#include "matrix.hh"
+#include <math.h>
 
 //returns v3 relative to world origin 
 //intersection of projection line and screen plane
@@ -15,28 +18,26 @@ v3 screen::insectLoc (const v3 vertex) {
   const v3& so = scrnLoc; //offset for screen
   v3 w = vertex - p;
   
-  //pjtv2 & vertex form line of the form
-  //pjtv2 + t(vertex - pjtv2)
-  //we want to first find t by pluging into the screen plane function, that is
+  //pjtLoc & vertex form line of the form
+  //pjtLoc + t(vertex - pjtLoc)
+  //we want to first find t by plugging into the screen plane function, that is
   //0 = a(x-x0) + b(y-y0) + c(z-z0)
   //so we algebra and find 
-  //t = (ax0 + b0 + cz0 - apx - bpy - cpz) / (awx + bwy + cwz)
-  //where p_ is the pjtv2 coords and w_ is the (vertex - pjtv2) coords
+  //t = (ax0 + by0 + cz0 - apx - bpy - cpz) / (awx + bwy + cwz)
+  //where p_ is the pjtLoc coords and w_ is the (vertex - pjtLoc) coords
 
-  const float t = (sm.x*so.x + sm.y*so.y + sm.z*so.z - sm.x*p.x - sm.y*p.y - sm.z*p.z) / 
-                  (sm.x*w.x + sm.y*w.y + sm.z*w.z);
+  const float t = sm.dot(so - p)/ sm.dot(w);
+//  std::cout << t << std::endl;
   
-  return v3(p.x + t*w.x, p.y + t*w.y, p.z + t*w.z);
+  return p + (w * t);
 }
 
-//TODO remember to check for behind/between when using the insectLoc output
 //call on point returned by insectLoc
 v2 screen::locOnScreen (const v3 intersect) {
   const v3 w = intersect - scrnLoc; //adjust to be relative to center of screen
   v2 out;
   out.x = w.dot(xUnitOrth); 
   out.y = w.dot(yUnitOrth);
-//  out *= 10; //TODO was this really the problem????
   return out;
 }
 
@@ -114,12 +115,15 @@ float screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
   if (ndp == 0) return false;
   float depth =  (norm.dot(c[0]) - norm.dot(pjtLoc))/(ndp); //coef. for line
 
-  if(depth >= 0 && depth < zbuff[x + width*y]) {
+  if(depth > 1 && depth < zbuff[x + width*y]) {
     zbuff[x + width*y] = depth;
     return depth;
   }
   return -1;
 }
+
+#define MAX(a,b) ((a<b)? b:a)
+#define MIN(a,b) ((a>b)? b:a)
 
 void screen::renderObj(object& obj) {
   float average;
@@ -133,22 +137,42 @@ void screen::renderObj(object& obj) {
 
   v2 curBound[3];
   float minx,miny,maxx,maxy;
-  int tx,ty;
+  m33 textureLocator, textureLocatorInverse;
   for (int i = 0; i< obj.np; i++) {
 
-//    std::cout << i << " ";
     v3& a = obj.vertexes[obj.planes[i*3]];
     v3& b = obj.vertexes[obj.planes[i*3 + 1]];
     v3& c = obj.vertexes[obj.planes[i*3 + 2]];
     v3 norm = (b-a).cross(c-a);
-//    if (norm.dot(scrnLoc - pjtLoc) > 0) continue;
+    
+    v2 ta,tb,tc; //not a reference like before, but idk
+    if (!obj.UVs.empty()) {
+      ta = obj.UVs[obj.planeUVs[i*3]]; //corresponds to a/b/c
+      tb = obj.UVs[obj.planeUVs[i*3 + 1]]; 
+      tc = obj.UVs[obj.planeUVs[i*3 + 2]]; 
+    }
+
+    /*
+    std::cout << ta.toString() << std::endl <<
+      tb.toString() << std::endl <<
+      tc.toString() <<std::endl <<std::endl;
+    */
+
     if (norm.dot(a - pjtLoc) > 0) continue;
     //back face culling
 
     for (int j = 0; j < 3; j++) {
       curBound[j] = points[obj.planes[(i*3)+j]];
       //note that the indexes of obj.vertexes and points align
+      curBound[j].x += (int)SWIDTH/2;
+      curBound[j].y += (int)SHEIGHT/2;
     }
+
+    //go from coords relative to ploy to std coords
+    textureLocator.setCol(0,b-a);
+    textureLocator.setCol(1,c-a);
+    textureLocator.setCol(2,norm);
+    textureLocatorInverse = textureLocator.getInverse();
 
     minx = (curBound[0].x < curBound[1].x)? curBound[0].x:curBound[1].x;
     minx = (minx < curBound[2].x)? minx:curBound[2].x;
@@ -162,32 +186,62 @@ void screen::renderObj(object& obj) {
     maxy = (curBound[0].y > curBound[1].y)? curBound[0].y:curBound[1].y;
     maxy = (maxy > curBound[2].y)? maxy:curBound[2].y;
 
+//    std::cerr << "(" << minx << ", " << maxx << ") (" << miny << ", " << maxy << ")" << std::endl;
+    //clip rectangle to screen, allow for min>max, cause the loop will catch that
+    minx = (minx > 0)? minx:0;
+    miny = (miny > 0)? miny:0;
+    maxx = (maxx < width-1)? maxx:width-1;
+    maxy = (maxy < height-1)? maxy:height-1;
+
     for (int x = minx; x < maxx; x++) {
       for (int y = miny; y < maxy; y++) {
-        //if (checkIfInside(v2(x,y),curBound,3)) {
-        tx = (int)SWIDTH/2 + x;
-        ty = (int)SHEIGHT/2 + y;
-        if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
         if (v2(x,y).checkIfInside(curBound)) {
-//          std::cout << i<<",";
-          float depth = zbuffCheckV1(tx,ty,obj, i);
-          if (depth >= 0) {
-//            setPixel(sdlScreen, tx,ty, 0, i << 5, 0xFF - i << 5, 0xFF);
-            v3 toPoly = ((((pixTov3(tx,ty)-pjtLoc) * depth) + pjtLoc) - lightLoc).normalize();
+          float depth = zbuffCheckV1(x,y,obj, i);
+          if (depth > 0) {
+            //start light level
+            v3 toPoly = ((((pixTov3(x,y)-pjtLoc) * depth) + pjtLoc) - lightLoc).normalize();
             norm.normalize();
-            float LL = toPoly.dot(norm)*256;
-            if (LL >= 0)  {
-              setPixel(sdlScreen, tx,ty, 0, 0, 0, 0xFF);
-              continue;
+            //start texture
+            v3 onPoly = (((pixTov3(x,y)-pjtLoc) * depth) + pjtLoc); //location on polygon
+
+            onPoly -= a; //relative to one vertex
+//            m34 basisChange = m34();
+//            basisChange.setCol(0,b-a);
+//            basisChange.setCol(1,c-a);
+//            basisChange.setCol(2,norm);
+//            basisChange.setCol(3,onPoly); //matrix is complete
+//            basisChange.reduce();
+//            v3 solution = basisChange.getCol(3);
+//            ^ is old code for getting texture loc
+//            
+            tcolor tPixel;
+            if (!obj.UVs.empty()) {
+//              std::cout << onPoly.toString() << std::endl;
+              v3 solution = textureLocatorInverse.multLeft(onPoly);
+//              std::cout << solution.toString() << std::endl << std::endl;
+              v2 triangleLoc = v2(solution.x, solution.y);
+              v2 textureLoc = ((tb-ta) * triangleLoc.x) + ((tc-ta) * triangleLoc.y) + ta;
+              textureLoc.x *= obj.texture.width;
+              textureLoc.y *= obj.texture.height;
+              tPixel = obj.texture.get((int)textureLoc.x, (int)textureLoc.y);
+            } else {
+              tPixel = tcolor(0xff,0xff,0xff); //no texture, just light
             }
-//            LL = 256*pow(LL/256,2);
+            //start lighting
+            float LL = toPoly.dot(norm)*256;
+            LL = (LL > 0)? 0 : LL; //prevent lighting through the object / reverse side
             LL = log2(abs(LL));
             LL = (LL < 0)? 0 : LL;
             LL *= 32;
-            uint8_t rgbLight = (uint8_t)(LL);
-            setPixel(sdlScreen, tx,ty, rgbLight, rgbLight, rgbLight, 0xFF);
+            LL /= 256;
+            //got spotlight
+            LL *= spotStrength;
+            LL += ambientStrength; 
+            LL = (LL > 1)? 1:LL;
+            //apply lighting
+            tPixel *= LL;
+            setPixel(sdlScreen, x,y, tPixel.r, tPixel.g, tPixel.b, 0xFF);
           }
-//          std::cout << std::endl;
         }
       }
     }
@@ -216,4 +270,61 @@ void screen::scaleFocalLength(float s) {
   v3 diff = scrnLoc - pjtLoc;
   diff *= s;
   scrnLoc = pjtLoc + diff;
+}
+
+void screen::rotX(float theta) {
+  pjtLoc.rotX(theta);
+  scrnLoc.rotX(theta);
+  scrnSlope.rotX(theta);
+  xUnitOrth.rotX(theta);
+  yUnitOrth.rotX(theta);
+  lightLoc.rotX(theta);
+}
+
+void screen::rotY(float theta) {
+  pjtLoc.rotY(theta);
+  scrnLoc.rotY(theta);
+  scrnSlope.rotY(theta);
+  xUnitOrth.rotY(theta);
+  yUnitOrth.rotY(theta);
+  lightLoc.rotY(theta);
+}
+
+void screen::rotZ(float theta) {
+  pjtLoc.rotZ(theta);
+  scrnLoc.rotZ(theta);
+  scrnSlope.rotZ(theta);
+  xUnitOrth.rotZ(theta);
+  yUnitOrth.rotZ(theta);
+  lightLoc.rotZ(theta);
+}
+
+void screen::rotArb(v3 ray, float theta) {
+  //ray should be normalized
+  v3 tmp = ray;
+  tmp.x=0; 
+  tmp.normalize();
+  //project onto YZ plane
+  float first = acos(tmp.dot(v3(0,0,1)));
+  this->rotX(first);
+  ray.rotX(first);
+  //aligned ray and cam to XZ plane
+  float second = acos(ray.dot(v3(1,0,0)));
+  this->rotY(second);
+//  ray.rotY(second); //we don't need to keep track of ray anymore
+  this->rotX(theta);
+  //do cam rotation around X
+  //then shift back to where it was
+  this->rotY(-1 * second);
+  this->rotX(-1 * first);
+}
+
+std::string screen::toString() {
+  std::string out = "";
+  out += "scrnLoc: " + scrnLoc.toString() + '\n';
+  out += "pjtLoc: " + pjtLoc.toString() + '\n';
+  out += "scrnSlope: " + scrnSlope.toString() +'\n';
+  out += "xUnitOrth: " + xUnitOrth.toString() + '\n';
+  out += "yUnitOrth: " + yUnitOrth.toString();
+  return out;
 }

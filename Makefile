@@ -1,5 +1,5 @@
-CD:=-g -Og
-LD:=-g -Og
+CD:=-g 
+LD:=-g 
 W:=-Wall -Wextra 
 FST:=-O3
 LTNG:=-Ofast
@@ -29,10 +29,10 @@ endif
 run:all
 	./all
 
-all:main.o projection.o util.o sdlfb.o 
+all:main.o projection.o util.o sdlfb.o timage.o matrix.o cubewrap.o
 	g++ ${LARG} $^ -o $@
 
-main.o:main.cc util.hh projection.hh sdlfb.hh
+main.o:main.cc util.hh projection.hh sdlfb.hh cubewrap.hh
 	g++ -c ${CARG} $< -o $@
 
 projection.o:projection.cc projection.hh util.hh sdlfb.hh
@@ -42,6 +42,15 @@ sdlfb.o:sdlfb.cc sdlfb.hh
 	g++ -c ${CARG} $< -o $@
 
 util.o:util.cc util.hh
+	g++ -c ${CARG} $< -o $@
+
+timage.o:timage.cc timage.hh
+	g++ -c ${CARG} $< -o $@
+
+matrix.o:matrix.cc matrix.hh util.hh
+	g++ -c ${CARG} $< -o $@
+
+cubewrap.o:cubewrap.cc cubewrap.hh util.hh 
 	g++ -c ${CARG} $< -o $@
 
 clean:

@@ -1,5 +1,6 @@
-#include "util.hh"
 #include <vector>
+#include "util.hh"
+#include <string>
 
 //be very careful editing any of these values
 //I might wanna add some protections for those
@@ -12,12 +13,14 @@ class screen {
   public:
     screen(int w, int h) : width(w), height(h){
       zbuff = new float[w*h];
+      scrnLoc = v3(550,0,0);
       pjtLoc = v3(0,0,0);
-      scrnLoc = v3(1,0,0);
       scrnSlope = v3(1,0,0);
       xUnitOrth = v3(0,0,1);
-      yUnitOrth = v3(0,1,0);
+      yUnitOrth = v3(0,-1,0);
       lightLoc = v3(0,0,0);
+      ambientStrength = 0.15;
+      spotStrength = 0.75;
     }
 
     ~screen() {
@@ -32,7 +35,13 @@ class screen {
     void renderScene();
     void initFrame();
     void translate(v3);
+    void rotX(float);
+    void rotY(float);
+    void rotZ(float);
+    void rotArb(v3, float);
     void scaleFocalLength(float);
+
+    std::string toString();
 
     const int width, height;
     float* zbuff;
@@ -40,7 +49,9 @@ class screen {
     std::vector<object*> inScene;
 
     v3 lightLoc;
-    //TODO rework to use pjtLoc, normal vector, and fixed FOV scalar.
+    float spotStrength; //0-1
+    float ambientStrength; //should be 0-1
+
     v3 pjtLoc; //x,y,z of projection point
     //next two are screen plane
     v3 scrnLoc; //x0,y0,z0 in below

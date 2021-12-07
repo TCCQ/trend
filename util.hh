@@ -1,32 +1,9 @@
 #include <string>
 #include <vector> 
 #include <string>
+#include "timage.hh"
+#include <iostream>
 //the dynamic array vector, not a math vector
-
-#ifndef v3Class
-#define v3Class
-class v3 {
-  public:
-    float x,y,z;
-
-    v3(void) {}
-    v3(float i, float j, float k): x(i), y(j), z(k) {} 
-
-    float length(void) const; 
-    float distance(const v3&) const;
-    float dot(const v3&) const;
-    v3 cross(const v3&) const;
-    v3 operator+(const v3&) const;
-    v3 operator-(const v3&) const;
-    v3 operator*(const float) const;    
-    v3& operator+=(const v3&);
-    v3& operator-=(const v3&);
-    v3& operator*=(const float);    
-    v3& normalize(void);
-
-    std::string toString() const;
-};
-#endif
 
 #ifndef v2Class
 #define v2Class
@@ -49,6 +26,35 @@ class v2 {
 };
 #endif
 
+#ifndef v3Class
+#define v3Class
+class v3 {
+  public:
+    float x,y,z;
+
+    v3(void) {}
+    v3(float i, float j, float k): x(i), y(j), z(k) {} 
+    v3(v2 in): x(in.x), y(in.y), z(0) {}
+
+    float length(void) const; 
+    float distance(const v3&) const;
+    float dot(const v3&) const;
+    v3 cross(const v3&) const;
+    v3 operator+(const v3&) const;
+    v3 operator-(const v3&) const;
+    v3 operator*(const float) const;    
+    v3& operator+=(const v3&);
+    v3& operator-=(const v3&);
+    v3& operator*=(const float);    
+    v3& normalize(void);
+    v3& rotX(float);
+    v3& rotY(float);
+    v3& rotZ(float);
+
+    std::string toString() const;
+};
+#endif
+
 #ifndef objectClass
 #define objectClass
 class object {
@@ -56,18 +62,24 @@ class object {
     v3 internalCurTrans;
     float internalCurScalar;
   public:
-    object():nv(0),np(0) {internalCurTrans = v3(0,0,0); internalCurScalar = 1; vertexes = nullptr; planes = nullptr;}
+    object():nv(0),np(0) {
+      internalCurTrans = v3(0,0,0);
+      internalCurScalar = 1;
+//      vertexes = nullptr;
+//      planes = nullptr;
+//      UVs = nullptr;
+//      planeUVs = nullptr;
+    }
 
     object(unsigned int v, unsigned int p): nv(v), np(p) {
-      vertexes = new v3[v];
-      planes = new int[p*3];
+      texture = timage();
       internalCurTrans = v3(0,0,0);
       internalCurScalar = 1;
     }
 
     object(std::vector<v3> ver, std::vector<int> pla): nv{ver.size()}, np{pla.size()/3} {
-      vertexes = new v3[nv];
-      planes = new int[np*3];
+      vertexes = std::vector<v3>(ver);
+      planes = std::vector<int>(pla);
       for (int i = 0; i < nv; i++) {
         vertexes[i] = ver[i];
       }
@@ -80,13 +92,45 @@ class object {
       }
       internalCurTrans = v3(0,0,0);
       internalCurScalar = 1;
+      texture = timage();
+    }
+
+    object(std::vector<v3> ver, std::vector<int> pla, std::vector<v2> u, std::vector<int> uvp): nv{ver.size()}, np{pla.size()/3} {
+      vertexes = std::vector<v3>(ver);
+      planes = std::vector<int>(pla);
+      UVs = std::vector<v2>(u);
+      planeUVs = std::vector<int>(uvp);
+      for (int i = 0; i < nv; i++) {
+        vertexes[i] = ver[i];
+      }
+      for (int j = 0; j < u.size(); j++) {
+        UVs[j] = u[j];
+      }
+      int tmp;
+      for (int i = 0; i < np; i++) {
+        tmp = i*3;
+        planes[tmp] = pla[tmp];
+        planes[tmp+1] = pla[tmp+1];
+        planes[tmp+2] = pla[tmp+2];
+        if (uvp.size() > 0) {
+          planeUVs[tmp] = uvp[tmp];
+          planeUVs[tmp+1] = uvp[tmp+1];
+          planeUVs[tmp+2] = uvp[tmp+2];
+        }
+       }
+      internalCurTrans = v3(0,0,0);
+      internalCurScalar = 1;
     }
 
     object& operator=(const object& other) {
       nv = other.nv;
       np = other.np;
-      vertexes = other.vertexes;
-      planes = other.planes;
+      vertexes = std::vector<v3>(other.vertexes);
+      planes = std::vector<int>(other.planes);
+      UVs = std::vector<v2>(other.UVs);
+      planeUVs = std::vector<int>(other.planeUVs);
+
+      texture = timage(other.texture);
       internalCurTrans = other.internalCurTrans;
       internalCurScalar = other.internalCurScalar;
       return *this;
@@ -94,17 +138,25 @@ class object {
 
     ~object(void) {
       if (nv == 0 && np == 0) return;
-      delete vertexes;
-      delete planes;
+//      delete [] vertexes;
+//      delete [] planes;
+//      delete [] UVs;
+//      delete [] planeUVs;
     }
+
+    static object fromFile(std::string);
+    static object objAndTexture(std::string, std::string);
 
     std::string toString();
 
     long unsigned int nv;
     long unsigned int np;
-    v3* vertexes;
-    int* planes; //!! must be all be 3 elements (triangles), will only consider first 3
+    std::vector<v3> vertexes;
+    std::vector<int> planes; //!! must be all be 3 elements (triangles), will only consider first 3
     //idx%3 are the elements of that plane, idx/3 is the index of the plane itself
+    std::vector<v2> UVs;
+    std::vector<int> planeUVs;
+    timage texture;
 
 
     void rotateX(float);
@@ -112,17 +164,9 @@ class object {
     void rotateZ(float);
     void translate(v3);
     const v3& currentTranslation = internalCurTrans;
-    /*
-     * scales around the origin, if you want self scaling do 
-     * v3 hold = currentTranslation;
-     * translate(currentTranslation * -1);
-     * scale(scalar);
-     * translate(hold);
-     */
     void scale(float);
     const float& currentScalar = internalCurScalar;
 };
-object objectFromFile(std::string);
 #endif
 
 //bool checkIfInside(v2, v2*, unsigned int);
