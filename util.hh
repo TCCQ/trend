@@ -20,6 +20,7 @@ class v2 {
     v2& operator+=(const v2&);
     v2& operator-=(const v2&);
     v2& operator*=(const float&);
+    v2& operator=(const v2&);
 
     std::string toString() const;
     bool checkIfInside(v2*) const;
@@ -46,10 +47,38 @@ class v3 {
     v3& operator+=(const v3&);
     v3& operator-=(const v3&);
     v3& operator*=(const float);    
+    v3& operator=(const v3&);
     v3& normalize(void);
     v3& rotX(float);
     v3& rotY(float);
     v3& rotZ(float);
+
+    std::string toString() const;
+};
+#endif
+
+#ifndef v4Class
+#define v4Class
+class v4 {
+  public:
+    float x,y,z,w;
+
+    v4(void) {}
+    v4(float i, float j, float k, float l): x(i), y(j), z(k), w(l) {} 
+    //remember that it sets the fourth coord to 1 for use in unified transforms
+    v4(v3 in): x(in.x), y(in.y), z(in.z), w(1) {}
+
+    float length(void) const; 
+    float distance(const v4&) const;
+    float dot(const v4&) const;
+    v4 operator+(const v4&) const;
+    v4 operator-(const v4&) const;
+    v4 operator*(const float) const;    
+    v4& operator+=(const v4&);
+    v4& operator-=(const v4&);
+    v4& operator*=(const float);    
+    v4& operator=(const v4&);
+    v4& normalize(void);
 
     std::string toString() const;
 };

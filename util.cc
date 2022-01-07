@@ -57,6 +57,13 @@ v3& v3::operator*=(const float scalar) {
   return *this;
 }
 
+v3& v3::operator=(const v3& other) {
+  x = other.x;
+  y = other.y;
+  z = other.z;
+  return *this;
+}
+
 std::string v3::toString() const {
   return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")"; 
 }
@@ -122,6 +129,12 @@ v2& v2::operator-=(const v2& other) {
 v2& v2::operator*=(const float& other) {
   x *= other;
   y *= other;
+  return *this;
+}
+
+v2& v2::operator=(const v2& other) {
+  x = other.x;
+  y = other.y;
   return *this;
 }
 
@@ -313,5 +326,71 @@ object object::objAndTexture(std::string oFile, std::string tFile) {
   object out = object::fromFile(oFile);
   out.texture = timage::fromFile(tFile);
   return out;
+}
+
+//END object methods
+
+float v4::length(void) const {
+  return sqrt(x*x + y*y + z*z + w*w);
+}
+
+float v4::distance(const v4& other) const {
+  return sqrt(pow(x - other.x, 2) + pow(y - other.y, 2) + pow(z - other.z, 2) + pow(w - other.w, 2));
+}
+
+float v4::dot(const v4& other) const {
+  return other.x*x + other.y*y + other.z*z + other.w*w;
+}
+
+v4 v4::operator+(const v4& other) const {
+  return v4(x+other.x, y+other.y, z+other.z, w+other.w);
+}
+
+v4 v4::operator-(const v4& other) const {
+  return v4(x-other.x, y-other.y, z-other.z, w-other.w);
+}
+
+v4 v4::operator*(const float scalar) const {
+  return v4(x*scalar, y*scalar, z*scalar, w*scalar);
+}
+
+v4& v4::operator+=(const v4& other) {
+  x += other.x;
+  y += other.y;
+  z += other.z;
+  w += other.w;
+  return *this;
+}
+
+v4& v4::operator-=(const v4& other) {
+  x -= other.x;
+  y -= other.y;
+  z -= other.z;
+  w -= other.w;
+  return *this;
+}
+
+v4& v4::operator*=(const float scalar) {
+  x *= scalar;
+  y *= scalar;
+  z *= scalar;
+  w *= scalar;
+  return *this;
+}
+
+v4& v4::operator=(const v4& other) {
+  x = other.x;
+  y = other.y;
+  z = other.z;
+  w = other.w;
+  return *this;
+}
+
+v4& v4::normalize(void) {
+  return *this *= length();
+}
+
+std::string v4::toString() const {
+  return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ", " + std::to_string(w) + ")"; 
 }
 

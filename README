@@ -1,9 +1,15 @@
 This project is a 3d renderer from scratch in C++. It uses SDL to create a window, but that is all. The setPixel function is abstracted, so it would be possible to remove SDL as a dependency. Usage is `./all model.obj texture.tga` It is highly suggested to compile as `make all FAST=1`. 
 
+
 util.hh is object and vector class declarations.
+
 matrix.hh is a matrix class to get matrix inverses for texturing
+
 timage.hh is a color abstraction class and an image class, largely for making a framebuffer out of a tga texture (run length encoding is not supported for tga image as of yet)
+
 projection.hh is declarations of screen class and projection functions
+
 sdlfb.hh is an abstraction layer for getting a framebuffer for the window. I am using SDL as a backend for now, but that may change
-cubewrap.hh is declarations for a rubiks cube encoding scheme. It is not useful, as the relevant sections of main are commented at the moment
+
 main.cc is the starting point
+

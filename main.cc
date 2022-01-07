@@ -8,85 +8,59 @@
 #include <fstream>
 #include "timage.hh"
 #include "matrix.hh"
-#include "cubewrap.hh"
 
 const struct timespec mil = {0,16666666};
 bool quit = false;
 screen s = screen(SWIDTH, SHEIGHT);
 SDL_Window* win;
-cubeWrapper cw;
 std::string texture;
-std::string models[7] = {"rubiks/cubit.obj",
-                      "rubiks/top.obj",
-                      "rubiks/under.obj",
-                      "rubiks/back.obj",
-                      "rubiks/front.obj",
-                      "rubiks/left.obj",
-                      "rubiks/right.obj"};
 timage curText;
-bool doingCube;
 
 void doInput(SDL_KeyboardEvent& e) {
-  if (doingCube) {
-    if ((SDL_GetModState() & KMOD_LSHIFT) && e.keysym.sym == SDLK_f) cw.insert('F');
-    else if (e.keysym.sym == SDLK_f) cw.insert('f');
-    else if ((SDL_GetModState() & KMOD_LSHIFT) && e.keysym.sym == SDLK_b) cw.insert('B');
-    else if (e.keysym.sym == SDLK_b) cw.insert('b');
-    else if ((SDL_GetModState() & KMOD_LSHIFT) && e.keysym.sym == SDLK_t) cw.insert('T');
-    else if (e.keysym.sym == SDLK_t) cw.insert('t');
-    else if ((SDL_GetModState() & KMOD_LSHIFT) && e.keysym.sym == SDLK_u) cw.insert('U');
-    else if (e.keysym.sym == SDLK_u) cw.insert('u');
-    else if ((SDL_GetModState() & KMOD_LSHIFT) && e.keysym.sym == SDLK_l) cw.insert('L');
-    else if (e.keysym.sym == SDLK_l) cw.insert('l');
-    else if ((SDL_GetModState() & KMOD_LSHIFT) && e.keysym.sym == SDLK_r) cw.insert('R');
-    else if (e.keysym.sym == SDLK_r) cw.insert('r');
-    else if (e.keysym.sym == SDLK_p) std::cerr << cw.toString() << std::endl;
-  } else {
-    if (e.keysym.sym == SDLK_w) {
-      s.inScene[0]->translate(v3(10,0,0));
-    } else if (e.keysym.sym == SDLK_s) {
-      s.inScene[0]->translate(v3(-10,0,0));
-    } else if (e.keysym.sym == SDLK_q) {
-      s.inScene[0]->translate(v3(0,10,0));
-    } else if (e.keysym.sym == SDLK_e) {
-      s.inScene[0]->translate(v3(0,-10,0));
-    } else if (e.keysym.sym == SDLK_a) {
-      s.inScene[0]->translate(v3(0,0,-10));
-    } else if (e.keysym.sym == SDLK_d) {
-      s.inScene[0]->translate(v3(0,0,10));
-    } else if (e.keysym.sym == SDLK_r) {
-      s.inScene[0]->scale(1.5);
-    } else if (e.keysym.sym == SDLK_f) {
-      s.inScene[0]->scale(1/1.5);
-    } else if (e.keysym.sym == SDLK_z) {
-      s.inScene[0]->rotateZ(0.05);
-    } else if (e.keysym.sym == SDLK_x) {
-      s.inScene[0]->rotateX(0.05);
-    } else if (e.keysym.sym == SDLK_c) {
-      s.inScene[0]->rotateY(0.05);
-    } else if (e.keysym.sym == SDLK_1) {
-      s.rotX(0.05);
-    } else if (e.keysym.sym == SDLK_2) {
-      s.rotY(0.05);
-    } else if (e.keysym.sym == SDLK_3) {
-      s.rotZ(0.05);
-    } else if (e.keysym.sym == SDLK_i) {
-      v3 sNorm = s.yUnitOrth.cross(s.xUnitOrth);
-      if (sNorm.dot(v3(0,1,0)) < 0.99) {
-        s.rotArb(s.xUnitOrth, -0.05);
-      }
-    } else if (e.keysym.sym == SDLK_k) {
-      v3 sNorm = s.yUnitOrth.cross(s.xUnitOrth);
-      if (sNorm.dot(v3(0,1,0)) > -0.99) {
-        s.rotArb(s.xUnitOrth, 0.05);
-      }
-    } else if (e.keysym.sym == SDLK_j) {
-      s.rotY(-0.05);
-    } else if (e.keysym.sym == SDLK_l) {
-      s.rotY(0.05);
+  if (e.keysym.sym == SDLK_w) {
+    s.inScene[0]->translate(v3(10,0,0));
+  } else if (e.keysym.sym == SDLK_s) {
+    s.inScene[0]->translate(v3(-10,0,0));
+  } else if (e.keysym.sym == SDLK_q) {
+    s.inScene[0]->translate(v3(0,10,0));
+  } else if (e.keysym.sym == SDLK_e) {
+    s.inScene[0]->translate(v3(0,-10,0));
+  } else if (e.keysym.sym == SDLK_a) {
+    s.inScene[0]->translate(v3(0,0,-10));
+  } else if (e.keysym.sym == SDLK_d) {
+    s.inScene[0]->translate(v3(0,0,10));
+  } else if (e.keysym.sym == SDLK_r) {
+    s.inScene[0]->scale(1.5);
+  } else if (e.keysym.sym == SDLK_f) {
+    s.inScene[0]->scale(1/1.5);
+  } else if (e.keysym.sym == SDLK_z) {
+    s.inScene[0]->rotateZ(0.05);
+  } else if (e.keysym.sym == SDLK_x) {
+    s.inScene[0]->rotateX(0.05);
+  } else if (e.keysym.sym == SDLK_c) {
+    s.inScene[0]->rotateY(0.05);
+  } else if (e.keysym.sym == SDLK_1) {
+    s.rotX(0.05);
+  } else if (e.keysym.sym == SDLK_2) {
+    s.rotY(0.05);
+  } else if (e.keysym.sym == SDLK_3) {
+    s.rotZ(0.05);
+  } else if (e.keysym.sym == SDLK_i) {
+    v3 sNorm = s.yUnitOrth.cross(s.xUnitOrth);
+    if (sNorm.dot(v3(0,1,0)) < 0.99) {
+      s.rotArb(s.xUnitOrth, -0.05);
     }
-//    std::cout << s.toString() << std::endl <<std::endl;
+  } else if (e.keysym.sym == SDLK_k) {
+    v3 sNorm = s.yUnitOrth.cross(s.xUnitOrth);
+    if (sNorm.dot(v3(0,1,0)) > -0.99) {
+      s.rotArb(s.xUnitOrth, 0.05);
+    }
+  } else if (e.keysym.sym == SDLK_j) {
+    s.rotY(-0.05);
+  } else if (e.keysym.sym == SDLK_l) {
+    s.rotY(0.05);
   }
+//    std::cout << s.toString() << std::endl <<std::endl;
 }
 
 void mouse (SDL_MouseMotionEvent& e) {
@@ -131,18 +105,6 @@ void frame(int sig) {
         break;
     }
   }
-  if (doingCube) cw.tick();
-  else {
-//    float t = s.yUnitOrth.cross(s.xUnitOrth).dot(v3(0,1,0));
-//    s.rotY(-2*M_PI/120);
-//    if (direction) {
-//      s.rotArb(s.xUnitOrth, -2*M_PI/220);
-//      if (t > 0.35) direction = false;
-//    } else {
-//      s.rotArb(s.xUnitOrth, 2*M_PI/220);
-//      if (t< -0.35) direction = true;
-//    }
-  }
 
   //update screen 
   SDL_LockSurface(sdlScreen);
@@ -168,31 +130,7 @@ int main(int argc, char** argv) {
     doc.scale(16);
     doc.translate(v3(0,-200,0));
     s.inScene.push_back(&doc);
-    doingCube = false;
-  } else {
-    return 0;
-    texture = "rubiks/texture.tga";
-    curText = timage::fromFile(texture);
-    for (int x = 0; x < 3; x++) {
-      for (int y = 0; y < 3; y++) {
-        for (int z = 0; z < 3; z++) {
-          if (x == 0 && y == 1 && z == 1) cw.visible[x+3*y+9*z] = object::objAndTexture(models[4], texture); 
-          else if (x == 2 && y == 1 && z == 1) cw.visible[x+3*y+9*z] = object::objAndTexture(models[3], texture); 
-          else if (x == 1 && y == 2 && z == 1) cw.visible[x+3*y+9*z] = object::objAndTexture(models[1], texture); 
-          else if (x == 1 && y == 0 && z == 1) cw.visible[x+3*y+9*z] = object::objAndTexture(models[2], texture); 
-          else if (x == 1 && y == 1 && z == 2) cw.visible[x+3*y+9*z] = object::objAndTexture(models[6], texture); 
-          else if (x == 1 && y == 1 && z == 0) cw.visible[x+3*y+9*z] = object::objAndTexture(models[5], texture); 
-          else cw.visible[x+3*y+9*z] = object::objAndTexture(models[0], texture); 
-          cw.visible[x+3*y+9*z].scale(50);
-          cw.visible[x+3*y+9*z].rotateZ(M_PI/2);
-          s.inScene.push_back(&(cw.visible[x+3*y+9*z]));
-          cw.visible[x+3*y+9*z].translate(v3(x*100 - 100, y*100 - 100, z*100 - 100));
-        }
-      }
-    }
-    doingCube = true;
-  }
-
+  } 
   s.lightLoc = v3(-500,0,500);
   s.spotStrength = 0.0;
   s.ambientStrength = 1.;

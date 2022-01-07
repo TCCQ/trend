@@ -29,10 +29,10 @@ endif
 run:all
 	./all
 
-all:main.o projection.o util.o sdlfb.o timage.o matrix.o cubewrap.o
+all:main.o projection.o util.o sdlfb.o timage.o matrix.o 
 	g++ ${LARG} $^ -o $@
 
-main.o:main.cc util.hh projection.hh sdlfb.hh cubewrap.hh
+main.o:main.cc util.hh projection.hh sdlfb.hh 
 	g++ -c ${CARG} $< -o $@
 
 projection.o:projection.cc projection.hh util.hh sdlfb.hh
@@ -48,9 +48,6 @@ timage.o:timage.cc timage.hh
 	g++ -c ${CARG} $< -o $@
 
 matrix.o:matrix.cc matrix.hh util.hh
-	g++ -c ${CARG} $< -o $@
-
-cubewrap.o:cubewrap.cc cubewrap.hh util.hh 
 	g++ -c ${CARG} $< -o $@
 
 clean:
