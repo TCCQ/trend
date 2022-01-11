@@ -34,7 +34,7 @@ class timage {
     timage(const timage&); //deep copy
     timage(uint32_t, uint32_t);
 
-    tcolor get(int,int);
+    tcolor get(int,int) const;
     void set(int,int, tcolor);
 
     timage& operator=(timage&&); //swap

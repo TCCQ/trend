@@ -1,6 +1,7 @@
 #include <vector>
 #include "util.hh"
 #include <string>
+#include <mutex>
 
 //be very careful editing any of these values
 //I might wanna add some protections for those
@@ -9,10 +10,13 @@
 class screen {
   private:
     void zbuffclear();
-    float zbuffCheckV1(int, int,object&,int);    
+    float zbuffCheckV1(int, int, const object&,int);    
+    void polygonRender(const object&, const v2*, int);
+    std::mutex* locks;
   public:
     screen(int w, int h) : width(w), height(h){
       zbuff = new float[w*h];
+      locks = new std::mutex[w*h];
       scrnLoc = v3(550,0,0);
       pjtLoc = v3(0,0,0);
       scrnSlope = v3(1,0,0);
@@ -24,7 +28,8 @@ class screen {
     }
 
     ~screen() {
-      delete zbuff;
+      delete [] zbuff;
+      delete [] locks;
     }
 
     //funcs to generate the stuff on screen

@@ -1,13 +1,18 @@
 #include "projection.hh"
 //util is included in .hh
 //<vector> is in util.hh
-#include "sdlfb.hh"
+//#include "sdlfb.hh"
+#include "fb.hh"
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <limits>
 #include "timage.hh"
 #include "matrix.hh"
 #include <math.h>
+#include "tpool.hh"
+#include <thread>
+
+extern tpool threadPool; //decalred for real in main, don't want to have to pass back and forth
 
 //returns v3 relative to world origin 
 //intersection of projection line and screen plane
@@ -100,7 +105,7 @@ void screen::zbuffclear() {
   }
 }
 
-float screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
+float screen::zbuffCheckV1 (int x, int y, const object& obj, int planeIdx) {
 //  zbuff[x + width*y] = std::numeric_limits<float>().max();
   v3 verScrn = pixTov3(x,y);
   v3 param = verScrn - pjtLoc; //param of line throug pix and pjtLoc
@@ -112,7 +117,7 @@ float screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
   v3 norm = (c[1] - c[0]).cross(c[2] - c[0]); //polygon normal 
 
   float ndp = norm.dot(param); 
-  if (ndp == 0) return false;
+  if (ndp == 0) return -1;
   float depth =  (norm.dot(c[0]) - norm.dot(pjtLoc))/(ndp); //coef. for line
 
   if(depth > 1 && depth < zbuff[x + width*y]) {
@@ -125,9 +130,116 @@ float screen::zbuffCheckV1 (int x, int y, object& obj, int planeIdx) {
 #define MAX(a,b) ((a<b)? b:a)
 #define MIN(a,b) ((a>b)? b:a)
 
-void screen::renderObj(object& obj) {
-  float average;
+void screen::polygonRender(const object& obj, const v2* points, int i) {
+  v2 curBound[3];
+  float minx,miny,maxx,maxy;
+  m33 textureLocator, textureLocatorInverse;
+  const v3& a = obj.vertexes[obj.planes[i*3]];
+  const v3& b = obj.vertexes[obj.planes[i*3 + 1]];
+  const v3& c = obj.vertexes[obj.planes[i*3 + 2]];
+  const v3 norm = (b-a).cross(c-a).normalize();
+  
+  v2 ta,tb,tc; //not a reference like before, but idk
+  if (!obj.UVs.empty()) {
+    ta = obj.UVs[obj.planeUVs[i*3]]; //corresponds to a/b/c
+    tb = obj.UVs[obj.planeUVs[i*3 + 1]]; 
+    tc = obj.UVs[obj.planeUVs[i*3 + 2]]; 
+  }
 
+  /*
+  std::cout << ta.toString() << std::endl <<
+    tb.toString() << std::endl <<
+    tc.toString() <<std::endl <<std::endl;
+  */
+
+  if (norm.dot(a - pjtLoc) > 0) return; //was continue, now in lambda
+  //back face culling
+
+  for (int j = 0; j < 3; j++) {
+    curBound[j] = points[obj.planes[(i*3)+j]];
+    //note that the indexes of obj.vertexes and points align
+    curBound[j].x += (int)SWIDTH/2;
+    curBound[j].y += (int)SHEIGHT/2;
+  }
+
+  //go from coords relative to ploy to std coords
+  textureLocator.setCol(0,b-a);
+  textureLocator.setCol(1,c-a);
+  textureLocator.setCol(2,norm);
+  textureLocatorInverse = textureLocator.getInverse();
+
+  minx = (curBound[0].x < curBound[1].x)? curBound[0].x:curBound[1].x;
+  minx = (minx < curBound[2].x)? minx:curBound[2].x;
+
+  maxx = (curBound[0].x > curBound[1].x)? curBound[0].x:curBound[1].x;
+  maxx = (maxx > curBound[2].x)? maxx:curBound[2].x;
+
+  miny = (curBound[0].y < curBound[1].y)? curBound[0].y:curBound[1].y;
+  miny = (miny < curBound[2].y)? miny:curBound[2].y;
+
+  maxy = (curBound[0].y > curBound[1].y)? curBound[0].y:curBound[1].y;
+  maxy = (maxy > curBound[2].y)? maxy:curBound[2].y;
+
+//    std::cerr << "(" << minx << ", " << maxx << ") (" << miny << ", " << maxy << ")" << std::endl;
+  //clip rectangle to screen, allow for min>max, cause the loop will catch that
+  minx = (minx > 0)? minx:0;
+  miny = (miny > 0)? miny:0;
+  maxx = (maxx < width-1)? maxx:width-1;
+  maxy = (maxy < height-1)? maxy:height-1;
+
+//    std::cout << "even considered? ";
+//    std::cout << width << "," << height << std::endl;
+  for (int x = minx; x < maxx; x++) {
+    for (int y = miny; y < maxy; y++) {
+//        std::cout << "possible pixel" << std::endl;
+      if (v2(x,y).checkIfInside(curBound)) {
+        locks[x + y*width].lock();
+        float depth = zbuffCheckV1(x,y,obj, i);
+        if (depth > 0) {
+//            std::cout << "passed depth" << std::endl;
+          //start light level
+          v3 toPoly = ((((pixTov3(x,y)-pjtLoc) * depth) + pjtLoc) - lightLoc).normalize();
+          //start texture
+          v3 onPoly = (((pixTov3(x,y)-pjtLoc) * depth) + pjtLoc); //location on polygon
+
+          onPoly -= a; //relative to one vertex
+          
+          tcolor tPixel;
+          if (!obj.UVs.empty()) {
+//              std::cout << onPoly.toString() << std::endl;
+            v3 solution = textureLocatorInverse.multLeft(onPoly);
+//              std::cout << solution.toString() << std::endl << std::endl;
+            v2 triangleLoc = v2(solution.x, solution.y);
+            v2 textureLoc = ((tb-ta) * triangleLoc.x) + ((tc-ta) * triangleLoc.y) + ta;
+            textureLoc.x *= obj.texture.width;
+            textureLoc.y *= obj.texture.height;
+            tPixel = obj.texture.get((int)textureLoc.x, (int)textureLoc.y);
+          } else {
+            tPixel = tcolor(0xff,0xff,0xff); //no texture, just light
+          }
+          //start lighting
+          float LL = toPoly.dot(norm)*256;
+          LL = (LL > 0)? 0 : LL; //prevent lighting through the object / reverse side
+          LL = log2(abs(LL));
+          LL = (LL < 0)? 0 : LL;
+          LL *= 32;
+          LL /= 256;
+          //got spotlight
+          LL *= spotStrength;
+          LL += ambientStrength; 
+          LL = (LL > 1)? 1:LL;
+          //apply lighting
+          tPixel *= LL;
+//            setPixel(sdlScreen, x,y, tPixel.r, tPixel.g, tPixel.b, 0xFF);
+          setPixel(x,y, tPixel.r, tPixel.g, tPixel.b);
+        }
+        locks[x + y*width].unlock();
+      }
+    }
+  }
+}
+
+void screen::renderObj(object& obj) {
   v2* points = new v2[obj.nv];
   //assume all the points are fine, see locOnScreen warning
   for (unsigned int i = 0; i < obj.nv; i++) {
@@ -135,124 +247,26 @@ void screen::renderObj(object& obj) {
   }
   //TODO should I render the points too? consider 
 
-  v2 curBound[3];
-  float minx,miny,maxx,maxy;
-  m33 textureLocator, textureLocatorInverse;
   for (int i = 0; i< obj.np; i++) {
-
-    v3& a = obj.vertexes[obj.planes[i*3]];
-    v3& b = obj.vertexes[obj.planes[i*3 + 1]];
-    v3& c = obj.vertexes[obj.planes[i*3 + 2]];
-    v3 norm = (b-a).cross(c-a);
-    
-    v2 ta,tb,tc; //not a reference like before, but idk
-    if (!obj.UVs.empty()) {
-      ta = obj.UVs[obj.planeUVs[i*3]]; //corresponds to a/b/c
-      tb = obj.UVs[obj.planeUVs[i*3 + 1]]; 
-      tc = obj.UVs[obj.planeUVs[i*3 + 2]]; 
-    }
-
-    /*
-    std::cout << ta.toString() << std::endl <<
-      tb.toString() << std::endl <<
-      tc.toString() <<std::endl <<std::endl;
-    */
-
-    if (norm.dot(a - pjtLoc) > 0) continue;
-    //back face culling
-
-    for (int j = 0; j < 3; j++) {
-      curBound[j] = points[obj.planes[(i*3)+j]];
-      //note that the indexes of obj.vertexes and points align
-      curBound[j].x += (int)SWIDTH/2;
-      curBound[j].y += (int)SHEIGHT/2;
-    }
-
-    //go from coords relative to ploy to std coords
-    textureLocator.setCol(0,b-a);
-    textureLocator.setCol(1,c-a);
-    textureLocator.setCol(2,norm);
-    textureLocatorInverse = textureLocator.getInverse();
-
-    minx = (curBound[0].x < curBound[1].x)? curBound[0].x:curBound[1].x;
-    minx = (minx < curBound[2].x)? minx:curBound[2].x;
-
-    maxx = (curBound[0].x > curBound[1].x)? curBound[0].x:curBound[1].x;
-    maxx = (maxx > curBound[2].x)? maxx:curBound[2].x;
-
-    miny = (curBound[0].y < curBound[1].y)? curBound[0].y:curBound[1].y;
-    miny = (miny < curBound[2].y)? miny:curBound[2].y;
-
-    maxy = (curBound[0].y > curBound[1].y)? curBound[0].y:curBound[1].y;
-    maxy = (maxy > curBound[2].y)? maxy:curBound[2].y;
-
-//    std::cerr << "(" << minx << ", " << maxx << ") (" << miny << ", " << maxy << ")" << std::endl;
-    //clip rectangle to screen, allow for min>max, cause the loop will catch that
-    minx = (minx > 0)? minx:0;
-    miny = (miny > 0)? miny:0;
-    maxx = (maxx < width-1)? maxx:width-1;
-    maxy = (maxy < height-1)? maxy:height-1;
-
-    for (int x = minx; x < maxx; x++) {
-      for (int y = miny; y < maxy; y++) {
-        if (v2(x,y).checkIfInside(curBound)) {
-          float depth = zbuffCheckV1(x,y,obj, i);
-          if (depth > 0) {
-            //start light level
-            v3 toPoly = ((((pixTov3(x,y)-pjtLoc) * depth) + pjtLoc) - lightLoc).normalize();
-            norm.normalize();
-            //start texture
-            v3 onPoly = (((pixTov3(x,y)-pjtLoc) * depth) + pjtLoc); //location on polygon
-
-            onPoly -= a; //relative to one vertex
-//            m34 basisChange = m34();
-//            basisChange.setCol(0,b-a);
-//            basisChange.setCol(1,c-a);
-//            basisChange.setCol(2,norm);
-//            basisChange.setCol(3,onPoly); //matrix is complete
-//            basisChange.reduce();
-//            v3 solution = basisChange.getCol(3);
-//            ^ is old code for getting texture loc
-//            
-            tcolor tPixel;
-            if (!obj.UVs.empty()) {
-//              std::cout << onPoly.toString() << std::endl;
-              v3 solution = textureLocatorInverse.multLeft(onPoly);
-//              std::cout << solution.toString() << std::endl << std::endl;
-              v2 triangleLoc = v2(solution.x, solution.y);
-              v2 textureLoc = ((tb-ta) * triangleLoc.x) + ((tc-ta) * triangleLoc.y) + ta;
-              textureLoc.x *= obj.texture.width;
-              textureLoc.y *= obj.texture.height;
-              tPixel = obj.texture.get((int)textureLoc.x, (int)textureLoc.y);
-            } else {
-              tPixel = tcolor(0xff,0xff,0xff); //no texture, just light
-            }
-            //start lighting
-            float LL = toPoly.dot(norm)*256;
-            LL = (LL > 0)? 0 : LL; //prevent lighting through the object / reverse side
-            LL = log2(abs(LL));
-            LL = (LL < 0)? 0 : LL;
-            LL *= 32;
-            LL /= 256;
-            //got spotlight
-            LL *= spotStrength;
-            LL += ambientStrength; 
-            LL = (LL > 1)? 1:LL;
-            //apply lighting
-            tPixel *= LL;
-            setPixel(sdlScreen, x,y, tPixel.r, tPixel.g, tPixel.b, 0xFF);
-          }
-        }
-      }
-    }
+    //let threads do polygons, cause order doesn't matter
+    //as long as zbuff and pixel setting are atomic (can't be interupted)
+    std::function<void(void)> func = [=, this, &obj](){this->polygonRender(obj,points,i);};
+    threadPool.enqueue(func);
   }
-//  setPixel(sdlScreen,250,250,0xFF,0,0,0xFF);
-  delete points;
+  //all work has been pushed to the queue
+  //wait for all work to be done (frame ends)
+  threadPool.waitUntilEmpty();
 }
 
 void screen::initFrame() {
+  flip(); //work on back buffer
   zbuffclear();
-  SDL_FillRect(sdlScreen, NULL, 0xFFFF);
+  for (int y = 0; y < SHEIGHT; y++) {
+    for (int x = 0; x < SWIDTH; x++) {
+      setPixel(x,y,0x44,0x0,0xAA);
+    }
+  }
+//  SDL_FillRect(sdlScreen, NULL, 0xFFFF);
 }
 
 void screen::renderScene() {

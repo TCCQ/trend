@@ -1,7 +1,15 @@
-This project is a 3d renderer from scratch in C++. It uses SDL to create a window, but that is all. The setPixel function is abstracted, so it would be possible to remove SDL as a dependency. Usage is `./all model.obj texture.tga` It is highly suggested to compile as `make all FAST=1`. 
+This project is a 3d renderer from scratch in C++. As of this commit, the framebuffer backend is supplied by drm (libdrm). It should be run from a tty console. It can be run safely (I think) from a window manager, but no promises. It should display on the first connected port of the first video card on the fist available mode (which should be the preferred mode, I believe). 
 
+Usage is:
+./all path/to/model.obj path/to/texture.tga [/dev/dri/cardN]
+where the dri card is optional. 
 
-util.hh is object and vector class declarations.
+As it is a tty application now, the camera controls are keyboard only. See doInput in main.cc. 
+
+The application is now multithreaded, with the number of worker threads (not the main thread) controlled by a definition in main.cc. See tpool.cc for how that works.
+(it separates at the polygon level)
+
+util.hh is object and vector class declarations
 
 matrix.hh is a matrix class to get matrix inverses for texturing
 
@@ -9,7 +17,10 @@ timage.hh is a color abstraction class and an image class, largely for making a 
 
 projection.hh is declarations of screen class and projection functions
 
-sdlfb.hh is an abstraction layer for getting a framebuffer for the window. I am using SDL as a backend for now, but that may change
+fb.hh is declarations of the rendering stuff I need to write to the framebuffer. It is mostly stolen, see comment at the top of fb.cc 
+
+tpool.hh is my implementation of a thread pool object, where there can be a number of worker threads that pull any [ void function(void) ] from a queue that can be added to by any other thread.
+  I *think* I covered any data races, but it is up to the user to ensure that the things in the queue are safe to execute in any order. You can effectively pass non void/void functions by capturing arguments in a lambda. Careful of copy/reference passing conventions. 
 
 main.cc is the starting point
 

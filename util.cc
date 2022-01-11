@@ -216,7 +216,6 @@ object object::fromFile(std::string str) {
   std::vector<v2>textureLocs = std::vector<v2>();
   std::vector<int>textureIdx = std::vector<int>();
   std::string word;
-  int st,end;
   float perLine[3];
   do {
     file >> str;

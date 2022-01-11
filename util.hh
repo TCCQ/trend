@@ -5,6 +5,8 @@
 #include <iostream>
 //the dynamic array vector, not a math vector
 
+#define small inline __attribute__((always_inline))
+
 #ifndef v2Class
 #define v2Class
 class v2 {

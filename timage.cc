@@ -128,7 +128,6 @@ timage timage::fromFile(std::string str) {
     timage out = timage(fwidth, fheight);
     char data[4];
     uint16_t sdata;
-    uint32_t ldata;
     uint8_t r,g,b;
     for (int y = 0; y < fheight; y++) {
       for (int x = 0; x < fwidth; x++) {
@@ -162,7 +161,7 @@ timage timage::fromFile(std::string str) {
   }
 }
 
-tcolor timage::get(int x, int y) {
+tcolor timage::get(int x, int y) const {
   if (x < 0 || x >= width || y < 0 || y >= height) return tcolor(0,0,0);
   return pixels[y*width + x];
 }
