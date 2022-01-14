@@ -4,8 +4,8 @@ W:=-Wall -Wextra
 FST:=-O3
 LTNG:=-Ofast
 
-CARG:=-std=gnu++20 -I/usr/include/libdrm/ -finline-functions -pthread
-LARG:=-std=gnu++20 -ldrm -pthread -lpthread
+CARG:=-std=gnu++20 -finline-functions -pthread
+LARG:=-std=gnu++20 -pthread -lpthread
 
 ifdef DEBUG 
 	CARG:=${CARG} ${CD}
@@ -26,19 +26,22 @@ ifdef LIGHTNING
 	LARG:=${LARG} ${LTNG}
 endif
 
-run:all
-	./all
+drm:main.o projection.o util.o drmfb.o timage.o matrix.o tpool.o
+	g++ ${LARG} -ldrm $^ -o $@
 
-all:main.o projection.o util.o fb.o timage.o matrix.o tpool.o
-	g++ ${LARG} $^ -o $@
+sdl:main.o projection.o util.o sdlfb.o timage.o matrix.o tpool.o
+	g++ ${LARG} -lSDL2 $^ -o $@
 
-main.o:main.cc util.hh projection.hh fb.o
+drmfb.o:drmfb.cc fb.hh
+	g++ -c ${CARG} -I/usr/include/libdrm/ $< -o $@
+
+sdlfb.o:sdlfb.cc fb.hh
 	g++ -c ${CARG} $< -o $@
 
-projection.o:projection.cc projection.hh util.hh fb.o
+main.o:main.cc util.hh projection.hh fb.hh
 	g++ -c ${CARG} $< -o $@
 
-sdlfb.o:sdlfb.cc sdlfb.hh
+projection.o:projection.cc projection.hh util.hh fb.hh
 	g++ -c ${CARG} $< -o $@
 
 util.o:util.cc util.hh
@@ -50,11 +53,8 @@ timage.o:timage.cc timage.hh
 matrix.o:matrix.cc matrix.hh util.hh
 	g++ -c ${CARG} $< -o $@
 
-fb.o:fb.cc fb.hh
-	g++ -c ${CARG} $< -o $@
-
 tpool.o:tpool.cc tpool.hh
 	g++ -c ${CARG} $< -o $@
 
 clean:
-	rm -f all *.o gmon.out *.gcov *.gcno *.gcda
+	rm -f sdl drm *.o gmon.out *.gcov *.gcno *.gcda

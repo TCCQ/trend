@@ -1,4 +1,10 @@
-This project is a 3d renderer from scratch in C++. As of this commit, the framebuffer backend is supplied by drm (libdrm). It should be run from a tty console. It can be run safely (I think) from a window manager, but no promises. It should display on the first connected port of the first video card on the fist available mode (which should be the preferred mode, I believe). 
+This project is a 3d renderer from scratch in C++. As of this commit, the framebuffer backend can be supplied by drm (libdrm). It should be run from a tty console. It can be run safely (I think) from a window manager, but no promises. It should display on the first connected port of the first video card on the fist available mode (which should be the preferred mode, I believe). 
+
+sdl is still an option, though.
+
+there are two final make targets: drm and sdl, which are self explanatory. drm should be run in a tty, sdl from a window manager
+
+NOTE! in the sdl version, the terminal running the program needs to be focused to accept input (including '/' to quit)
 
 Usage is:
 ./all path/to/model.obj path/to/texture.tga [/dev/dri/cardN]
@@ -17,7 +23,7 @@ timage.hh is a color abstraction class and an image class, largely for making a 
 
 projection.hh is declarations of screen class and projection functions
 
-fb.hh is declarations of the rendering stuff I need to write to the framebuffer. It is mostly stolen, see comment at the top of fb.cc 
+fb.hh is declarations of the rendering stuff I need to write to the framebuffer.  
 
 tpool.hh is my implementation of a thread pool object, where there can be a number of worker threads that pull any [ void function(void) ] from a queue that can be added to by any other thread.
   I *think* I covered any data races, but it is up to the user to ensure that the things in the queue are safe to execute in any order. You can effectively pass non void/void functions by capturing arguments in a lambda. Careful of copy/reference passing conventions. 
