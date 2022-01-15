@@ -1,79 +1,14 @@
 #include "util.hh"
 #include <iostream>
 #include <math.h> //for sqrt and pow
-#include <string>
 #include <vector>
 #include <fstream>
 
-float v3::length() const {
-  return sqrt(x*x + y*y + z*z);
-}
 
-//same as (*this - other).length()
-float v3::distance(const v3& other) const {
-  return sqrt(pow(x - other.x, 2) + pow(y - other.y, 2) + pow(z - other.z, 2));
-}
-
-float v3::dot(const v3& other) const {
-  return x*other.x + y*other.y + z*other.z;
-}
-
-v3 v3::cross(const v3& other) const {
-  return v3(y*other.z - z*other.y, 
-            z*other.x - x*other.z,
-            x*other.y - y*other.x);
-}
-
-v3 v3::operator+(const v3& other) const {
-  return v3(x+other.x, y+other.y, z+other.z);
-}
-
-v3 v3::operator-(const v3& other) const {
-  return v3(x-other.x, y-other.y, z-other.z);
-}
-
-v3 v3::operator*(const float scalar) const {
-  return v3(x*scalar, y*scalar, z*scalar);
-}
-
-v3& v3::operator+=(const v3& other) {
-  x += other.x;
-  y += other.y;
-  z += other.z;
-  return *this;
-}
-
-v3& v3::operator-=(const v3& other) {
-  x -= other.x;
-  y -= other.y;
-  z -= other.z;
-  return *this;
-} 
-
-v3& v3::operator*=(const float scalar) {
-  x *= scalar;
-  y *= scalar;
-  z *= scalar;
-  return *this;
-}
-
-v3& v3::operator=(const v3& other) {
-  x = other.x;
-  y = other.y;
-  z = other.z;
-  return *this;
-}
+//v3 methods
 
 std::string v3::toString() const {
   return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")"; 
-}
-
-v3& v3::normalize(void) {
-  float len = length();
-  x /= len;
-  y /= len;
-  z /= len;
-  return *this;
 }
 
 v3& v3::rotX(float theta) {
@@ -100,47 +35,9 @@ v3& v3::rotZ(float theta) {
   return *this;
 }
 
-//END OF v3 methods
+//END v3 methods
 
-v2 v2::operator+(const v2& other) const {
-  return v2(x+other.x, y+other.y);
-}
-
-v2 v2::operator-(const v2& other) const {
-  return v2(x-other.x, y-other.y);
-}
-
-v2 v2::operator*(const float& other) const {
-  return v2(x*other, y*other);
-}
-
-v2& v2::operator+=(const v2& other) {
-  x += other.x;
-  y += other.y;
-  return *this;
-}
-
-v2& v2::operator-=(const v2& other) {
-  x -= other.x;
-  y -= other.y;
-  return *this;
-}
-
-v2& v2::operator*=(const float& other) {
-  x *= other;
-  y *= other;
-  return *this;
-}
-
-v2& v2::operator=(const v2& other) {
-  x = other.x;
-  y = other.y;
-  return *this;
-}
-
-float v2::dot(const v2& other) const {
-  return other.x*x + other.y*y;
-}
+//v2 methods
 
 v2 v2::rayNormal(void) const {
   return v2(-y,x);
@@ -170,42 +67,9 @@ bool v2::checkIfInside(v2* bound) const {
   else return false;
 }
 
-/*
-#define max(a,b) ((a>b)? a:b)
-#define min(a,b) ((a<b)? a:b)
-//move right and count crossings
-//do not include duplicate vertex at the end, not necessary
-bool checkIfInside(v2 p, v2* boundary, unsigned int size) {
-  if (size < 3) return false;
-  v2 a,b;
-  a = boundary[0];
-  unsigned int crossings = 0;
-  for (unsigned long int idx = 1; idx <= size; idx++) {
-    b = boundary[idx % size];
-    if (p.x <= a.x || p.x <= b.x) { //to the left of at least one end, or on one
-      if (p.y > min(a.y,b.y) && p.y <= max(a.y,b.y)) { //between them vertically
-        //NOTE!!! that it can be equal to the top, but not the bottom,
-        if (a.y != b.y) { //do not allow horizontal lines
-          //get x value of the line between a and b at the y value of p
-          float tx = ((b.x - a.x)/(b.y - a.y))*(p.y - a.y) + a.x;
-          std::cerr << "(" << p.x << "," << p.y << ") : " << tx <<std::endl;
-          if (p.x <= tx) {
-            std::cerr << "passed" << std::endl;
-            ++crossings;
-          }
-        }
-      }
-    }
-    a = b;
-  }
-  if (crossings % 2 == 1) {
-    //odd
-    return true;
-  } else return false;
-}
-*/
-
 //END v2 methods
+
+//object methods
 
 object object::fromFile(std::string str) {
   std::fstream file = std::fstream(str, std::ifstream::in);
@@ -329,67 +193,10 @@ object object::objAndTexture(std::string oFile, std::string tFile) {
 
 //END object methods
 
-float v4::length(void) const {
-  return sqrt(x*x + y*y + z*z + w*w);
-}
-
-float v4::distance(const v4& other) const {
-  return sqrt(pow(x - other.x, 2) + pow(y - other.y, 2) + pow(z - other.z, 2) + pow(w - other.w, 2));
-}
-
-float v4::dot(const v4& other) const {
-  return other.x*x + other.y*y + other.z*z + other.w*w;
-}
-
-v4 v4::operator+(const v4& other) const {
-  return v4(x+other.x, y+other.y, z+other.z, w+other.w);
-}
-
-v4 v4::operator-(const v4& other) const {
-  return v4(x-other.x, y-other.y, z-other.z, w-other.w);
-}
-
-v4 v4::operator*(const float scalar) const {
-  return v4(x*scalar, y*scalar, z*scalar, w*scalar);
-}
-
-v4& v4::operator+=(const v4& other) {
-  x += other.x;
-  y += other.y;
-  z += other.z;
-  w += other.w;
-  return *this;
-}
-
-v4& v4::operator-=(const v4& other) {
-  x -= other.x;
-  y -= other.y;
-  z -= other.z;
-  w -= other.w;
-  return *this;
-}
-
-v4& v4::operator*=(const float scalar) {
-  x *= scalar;
-  y *= scalar;
-  z *= scalar;
-  w *= scalar;
-  return *this;
-}
-
-v4& v4::operator=(const v4& other) {
-  x = other.x;
-  y = other.y;
-  z = other.z;
-  w = other.w;
-  return *this;
-}
-
-v4& v4::normalize(void) {
-  return *this *= length();
-}
+//v4 methods
 
 std::string v4::toString() const {
   return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ", " + std::to_string(w) + ")"; 
 }
 
+//END v4 methods
