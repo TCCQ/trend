@@ -58,7 +58,7 @@ timage::~timage() {
   delete [] pixels;
 }
 
-timage& timage::operator=(timage&& other) { //move assignment
+timage& timage::operator=(timage&& other) { //copy 
   width = other.width;
   height = other.height;
   delete [] pixels;

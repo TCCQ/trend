@@ -26,10 +26,10 @@ ifdef LIGHTNING
 	LARG:=${LARG} ${LTNG}
 endif
 
-drm:main.o projection.o util.o drmfb.o timage.o matrix.o tpool.o
+drm:main.o projection.o util.o drmfb.o timage.o matrix.o tpool.o grid.o
 	g++ ${LARG} -ldrm $^ -o $@
 
-sdl:main.o projection.o util.o sdlfb.o timage.o matrix.o tpool.o
+sdl:main.o projection.o util.o sdlfb.o timage.o matrix.o tpool.o grid.o
 	g++ ${LARG} -lSDL2 $^ -o $@
 
 drmfb.o:drmfb.cc fb.hh
@@ -38,7 +38,7 @@ drmfb.o:drmfb.cc fb.hh
 sdlfb.o:sdlfb.cc fb.hh
 	g++ -c ${CARG} $< -o $@
 
-main.o:main.cc util.hh projection.hh fb.hh
+main.o:main.cc util.hh projection.hh fb.hh grid.hh
 	g++ -c ${CARG} $< -o $@
 
 projection.o:projection.cc projection.hh util.hh fb.hh
@@ -54,6 +54,9 @@ matrix.o:matrix.cc matrix.hh util.hh
 	g++ -c ${CARG} $< -o $@
 
 tpool.o:tpool.cc tpool.hh
+	g++ -c ${CARG} $< -o $@
+
+grid.o:grid.cc grid.hh
 	g++ -c ${CARG} $< -o $@
 
 clean:

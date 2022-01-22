@@ -25,6 +25,7 @@ class screen {
       lightLoc = v3(0,0,0);
       ambientStrength = 0.15;
       spotStrength = 0.75;
+      currentLoc = v3(0,0,0);
     }
 
     ~screen() {
@@ -54,6 +55,7 @@ class screen {
     std::vector<object*> inScene;
 
     v3 lightLoc;
+    v3 currentLoc;
     float spotStrength; //0-1
     float ambientStrength; //should be 0-1
 
