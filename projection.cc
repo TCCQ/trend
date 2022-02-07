@@ -195,11 +195,8 @@ void screen::polygonRender(const object& obj, const v2* points, const int i) {
   maxx = (maxx < width-1)? maxx:width-1;
   maxy = (maxy < height-1)? maxy:height-1;
 
-  for (int x = minx; x < maxx; x++) {
-    for (int y = miny; y < maxy; y++) {
-
-      if (v2(x,y).checkIfInside(curBound)) {
-
+  //don't like using auto, but as far as I can tell it is unavoidable here
+  auto pixel = [&] (int x, int y) {
         locks[x + y*width].lock();
 //        float depth = zbuffCheckV1(x,y,obj, i);
         v2 pixelRelToCenter = v2(x - (int)(SWIDTH/2), y - (int)(SHEIGHT/2));
@@ -271,6 +268,14 @@ void screen::polygonRender(const object& obj, const v2* points, const int i) {
           setPixel(x,y, tPixel.r, tPixel.g, tPixel.b);
         }
         locks[x + y*width].unlock();
+
+  };
+
+  for (int x = minx; x < maxx; x++) {
+    for (int y = miny; y < maxy; y++) {
+
+      if (v2(x,y).checkIfInside(curBound)) {
+        pixel(x,y);
       }
     }
   }
