@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
   s.lightLoc = v3(-500,0,500);
   s.spotStrength = 0.75;
   s.ambientStrength = 0.25;
-  s.translate(v3(-10,1000,0));
+  s.translate(v3(-500,0,0));
   //end screen setup
 
 
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
     start = clock();
     frame(SIGALRM, s);
     end = clock();
-    std::cout << end-start << ", " << CLOCKS_PER_SEC<< std::endl;
+    std::cerr << end-start << ", " << CLOCKS_PER_SEC<< std::endl;
   }
 
   //cleanup

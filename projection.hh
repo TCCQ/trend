@@ -11,6 +11,9 @@ class screen {
   private:
     void zbuffclear();
     float zbuffCheckV1(int, int, const object&,int);    
+    void triangleSplit(const v2&, const v2&, const v2&, auto);
+    void flatBottomTriangle(v2,v2,v2, auto);
+    void flatTopTriangle(const v2&, const v2&, const v2&, auto);
     void polygonRender(const object&, const v2*, int);
     std::mutex* locks;
   public:

@@ -1,5 +1,6 @@
 #include "tpool.hh"
 #include <chrono>
+//#include <iostream>
 
 #define POLLTIME 1000
 //one millisec to start
@@ -32,6 +33,7 @@ void tpool::poolWork() {
   currentThreads++;
   while (continueWork) {
     inProgress.acquire(); //will block until there is work to do
+//    std::cerr << midTask << std::endl;
     midTask++;
     listAccess.lock(); //ensure no two threads pop the same thing (not sure if pop is threadsafe)
     std::function<void(void)> func = queue.front();

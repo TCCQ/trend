@@ -33,8 +33,11 @@ v3 screen::insectLoc (const v3 vertex) {
   //t = (ax0 + by0 + cz0 - apx - bpy - cpz) / (awx + bwy + cwz)
   //where p_ is the pjtLoc coords and w_ is the (vertex - pjtLoc) coords
 
-  const float t = sm.dot(so - p)/ sm.dot(w);
+  const float denom = sm.dot(w);
+  if (denom == 0) return v3(FMAX,0,0); //error code
+  const float t = sm.dot(so - p)/ denom;
 //  std::cout << "t: " << t << std::endl;
+
   if (t < 0) return v3(FMAX,0,0); //error code, maybe should restructure, but this should be fine
   
   return p + (w * t);
@@ -89,6 +92,122 @@ float screen::zbuffCheckV1 (int x, int y, const object& obj, int planeIdx) {
 
 #define MAX(a,b) ((a<b)? b:a)
 #define MIN(a,b) ((a>b)? b:a)
+
+//assumes bottom is flat and that it has non-zero area
+void screen::flatBottomTriangle(v2 top, v2 left, v2 right, auto toRun) {
+  
+  float lim = (left.x - top.x)/(left.y - top.y); //inverse slope of the left edge, (from top to left)
+  float rim = (right.x - top.x)/(right.y - top.y); //similar
+  int initialy = ceilf(MAX(top.y, -1*height/2));
+  int finaly = floorf(MIN(left.y, height/2 - 1));
+  int initialx, finalx;
+
+  int ox, oy;
+  
+  for (int y = initialy; y <= finaly; y++) {
+  
+    initialx = (int)MAX(top.x + ((y-top.y)*lim), -1*width/2);
+    finalx = (int)MIN(top.x + ((y-top.y)*rim), width/2 - 1);
+    
+    for (int x = initialx; x <= finalx; x++) {
+      ox = x + width/2;
+      oy = y + height/2;
+      toRun(ox,oy);
+    }
+  }
+}
+
+//see above
+void screen::flatTopTriangle(const v2& bottom, const v2& left, const v2& right, auto toRun) {
+  float lim = (left.x - bottom.x)/(left.y - bottom.y); //inverse slope of the left edge, (from bottom to left)
+  float rim = (right.x - bottom.x)/(right.y - bottom.y); //similar
+  int initialy = floorf(MIN(bottom.y, height/2 - 1));
+  int finaly = ceilf(MAX(left.y, -1*height/2));
+  int initialx, finalx;
+
+  int ox, oy;
+  
+  for (int y = initialy; y >= finaly; y--) {
+    
+    initialx = (int)MAX(bottom.x + ((y-bottom.y)*lim), -1*width/2);
+    finalx = (int)MIN(bottom.x + ((y-bottom.y)*rim), width/2 - 1);
+
+    for (int x = initialx; x <= finalx; x++) {
+      ox = x + width/2;
+      oy = y + height/2;
+      toRun(ox,oy);
+    }
+  }
+}
+
+void screen::triangleSplit(const v2& a, const v2& b, const v2& c, auto toRun) {
+  const v2* top;
+  const v2* mid; 
+  const v2* bottom;
+  if (a.y < b.y && a.y <= c.y || a.y <= b.y && a.y < c.y) {// a is top
+    top = &a;
+    if (b.y < c.y) {
+      mid = &b;
+      bottom = &c;
+    }
+    else {
+      mid = &c;
+      bottom = &b;
+    }
+  } else if (b.y < a.y && b.y <= c.y || b.y <= a.y && b.y < c.y) { //b is top
+    top = &b;
+    if (a.y < c.y) {
+      mid = &a;
+      bottom = &c;
+    }
+    else {
+      mid = &c;
+      bottom = &a;
+    }
+  } else { //c is top
+    top = &c;
+    if (a.y < b.y) {
+      mid = &a;
+      bottom =&b;
+    }
+    else {
+      mid = &b;
+      bottom = &a;
+    }
+  }
+
+  if (bottom->y == mid->y) {
+    if (mid->x < bottom->x) {
+      flatBottomTriangle(*top,*mid,*bottom,toRun);
+    } else {
+      flatBottomTriangle(*top,*bottom,*mid,toRun);
+    }
+  } else if (top->y == mid->y) {
+    if (mid->x < top->x) {
+      flatTopTriangle(*bottom,*mid,*top,toRun);
+    } else {
+      flatTopTriangle(*bottom,*top,*mid,toRun);
+    }
+  } else {
+    float invSlope = (bottom->x - top->x)/(bottom->y - top->y);
+    float diff = mid->y - top->y;
+    v2 tmp = *top + v2(diff*invSlope, diff);
+    if (tmp.x < mid->x) {
+      flatBottomTriangle(*top, tmp, *mid, toRun);
+      flatTopTriangle(*bottom, tmp, *mid, toRun);
+    } else {
+      flatBottomTriangle(*top, *mid, tmp, toRun);
+      flatTopTriangle(*bottom, *mid, tmp, toRun);
+    }
+//    setPixel(tmp.x + SWIDTH/2, tmp.y + SHEIGHT/2, 0xFF,0,0);
+  }
+//  setPixel(a.x+SWIDTH/2,a.y+SHEIGHT/2, 0xFF,0xFF,0xFF);
+//  setPixel(b.x+SWIDTH/2,b.y+SHEIGHT/2, 0xFF,0xFF,0xFF);
+//  setPixel(c.x+SWIDTH/2,c.y+SHEIGHT/2, 0xFF,0xFF,0xFF);
+//  setPixel(top->x+SWIDTH/2,top->y+SHEIGHT/2, 0,0,0);
+//  setPixel(bottom->x+SWIDTH/2,bottom->y+SHEIGHT/2, 0,0,0);
+//  setPixel(mid->x+SWIDTH/2,mid->y+SHEIGHT/2, 0,0,0);
+}
 
 void screen::polygonRender(const object& obj, const v2* points, const int i) {
   v2 curBound[3];
@@ -195,7 +314,15 @@ void screen::polygonRender(const object& obj, const v2* points, const int i) {
   maxx = (maxx < width-1)? maxx:width-1;
   maxy = (maxy < height-1)? maxy:height-1;
 
-  //don't like using auto, but as far as I can tell it is unavoidable here
+  //if off screen, TODO there is surely a better way here
+  if (minx == maxx || miny == maxy) return;
+
+
+  /*
+   * TODO add better clipping
+   */
+
+  //I don't like using auto, but as far as I can tell it is unavoidable here
   auto pixel = [&] (int x, int y) {
         locks[x + y*width].lock();
 //        float depth = zbuffCheckV1(x,y,obj, i);
@@ -271,14 +398,17 @@ void screen::polygonRender(const object& obj, const v2* points, const int i) {
 
   };
 
-  for (int x = minx; x < maxx; x++) {
-    for (int y = miny; y < maxy; y++) {
+  triangleSplit(pva,pvb,pvc, pixel);
+//  flatBottomTriangle(pva,pvb,pvc,pixel);
 
-      if (v2(x,y).checkIfInside(curBound)) {
-        pixel(x,y);
-      }
-    }
-  }
+//  for (int x = minx; x < maxx; x++) {
+//    for (int y = miny; y < maxy; y++) {
+//
+//      if (v2(x,y).checkIfInside(curBound)) {
+//        pixel(x,y);
+//      }
+//    }
+//  }
 }
 
 void screen::renderObj(object& obj) {
@@ -287,8 +417,7 @@ void screen::renderObj(object& obj) {
   for (unsigned int i = 0; i < obj.nv; i++) {
     v3 hold = insectLoc(obj.vertexes[i]);
     if (hold.x == FMAX && hold.y == 0 && hold.z == 0) {
-      //this is an error code that this point is projected backwards
-      //and thus should not be rendered
+      //this is an error code that this point should not be rendered
       //pass error code forward
       points[i] = v2(FMAX,0); 
     } else {
@@ -301,6 +430,7 @@ void screen::renderObj(object& obj) {
     //let threads do polygons, cause order doesn't matter
     //as long as zbuff and pixel setting are atomic (can't be interupted)
     std::function<void(void)> func = [=, this, &obj](){this->polygonRender(obj,points,i);};
+//    func();
     threadPool.enqueue(func);
   }
   //all work has been pushed to the queue
